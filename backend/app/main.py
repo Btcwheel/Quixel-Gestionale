@@ -3,7 +3,6 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.core.config import settings
 from app.infrastructure.database.session import create_db_and_tables, seed_default_data
@@ -13,10 +12,14 @@ from app.infrastructure.database.session import create_db_and_tables, seed_defau
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
     # Startup: Create database tables and seed default data
-    if settings.DEBUG:
-        create_db_and_tables()
-        seed_default_data()
-        print("[OK] Database tables created")
+    import os
+    if not os.environ.get("DISABLE_STARTUP_DB"):
+        try:
+            create_db_and_tables()
+            seed_default_data()
+            print("[OK] Database tables created")
+        except Exception as e:
+            print(f"[WARN] DB init skipped: {e}")
     
     yield
     
@@ -42,12 +45,6 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-)
-
-# Add trusted host middleware
-app.add_middleware(
-    TrustedHostMiddleware,
-    allowed_hosts=["localhost", "127.0.0.1", "*.vercel.app"]
 )
 
 
