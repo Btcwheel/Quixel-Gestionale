@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat \"C:/Users/Quixel/Desktop/Gestionale Quixel/frontend/lib/api.ts\" 2>/dev/null || find \"C:/Users/Quixel/Desktop/Gestionale Quixel/frontend\" -name \"*.env*\" 2>/dev/null | head -5)"
+    ]
+  }
+}

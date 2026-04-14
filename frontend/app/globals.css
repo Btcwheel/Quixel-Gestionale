@@ -1,0 +1,254 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Warm dark: near-charcoal, not pure black */
+    --background: 40 20% 97%;          /* #FAF8F5 - soft cream */
+    --foreground: 30 8% 6%;             /* #0F0F0E - near-charcoal */
+    --card: 40 20% 98%;
+    --card-foreground: 30 8% 6%;
+    --popover: 40 20% 98%;
+    --popover-foreground: 30 8% 6%;
+
+    /* Signature accent: burnt orange / rust */
+    --primary: 20 85% 51%;              /* #E8621C - rust-orange */
+    --primary-foreground: 40 20% 98%;
+    --primary-muted: 20 60% 92%;        /* subtle rust wash for backgrounds */
+    --primary-glow: 20 90% 65%;         /* lighter rust for hover/glow states */
+
+    /* Secondary: warm slate */
+    --secondary: 30 10% 94%;            /* warm gray with yellow undertone */
+    --secondary-foreground: 30 8% 12%;
+    --secondary-muted: 30 8% 90%;
+
+    --muted: 30 8% 93%;
+    --muted-foreground: 30 5% 42%;      /* warm mid-gray */
+
+    --accent: 35 15% 92%;               /* warm beige accent */
+    --accent-foreground: 30 8% 12%;
+    --accent-muted: 35 12% 88%;
+
+    /* Semantic: emerald, amber, rose - not generic green/yellow/red */
+    --success: 155 55% 38%;             /* emerald */
+    --success-foreground: 155 60% 96%;
+    --success-muted: 155 40% 92%;
+
+    --warning: 35 90% 52%;              /* amber */
+    --warning-foreground: 35 20% 10%;
+    --warning-muted: 35 70% 92%;
+
+    --error: 345 70% 55%;               /* rose */
+    --error-foreground: 345 60% 96%;
+    --error-muted: 345 50% 92%;
+
+    --info: 210 60% 48%;                /* deeper blue for info (kept for utility) */
+    --info-foreground: 210 40% 98%;
+    --info-muted: 210 40% 92%;
+
+    --border: 30 10% 88%;               /* warm border */
+    --input: 30 10% 88%;
+    --ring: 20 85% 51%;                 /* rust ring */
+
+    --radius: 0.5rem;
+
+    /* Gradient CSS variables for subtle accents */
+    --gradient-primary: linear-gradient(135deg, hsl(20 85% 51%), hsl(15 80% 58%));
+    --gradient-primary-hover: linear-gradient(135deg, hsl(15 80% 58%), hsl(10 75% 62%));
+    --gradient-surface: linear-gradient(180deg, hsl(40 20% 98%), hsl(35 15% 95%));
+    --gradient-card: linear-gradient(180deg, hsl(0 0% 100% / 0.8), hsl(40 10% 96% / 0.6));
+    --gradient-subtle: linear-gradient(135deg, hsl(30 10% 96%), hsl(35 15% 93%));
+    --gradient-warm-overlay: linear-gradient(180deg, hsl(20 60% 50% / 0.06), hsl(35 40% 60% / 0.03));
+
+    /* Layered shadow variables */
+    --shadow-xs: 0 1px 2px hsl(30 8% 6% / 0.04);
+    --shadow-sm: 0 1px 3px hsl(30 8% 6% / 0.06), 0 1px 2px hsl(30 8% 6% / 0.04);
+    --shadow-md: 0 4px 6px hsl(30 8% 6% / 0.06), 0 2px 4px hsl(30 8% 6% / 0.04);
+    --shadow-lg: 0 10px 15px hsl(30 8% 6% / 0.07), 0 4px 6px hsl(30 8% 6% / 0.05);
+    --shadow-xl: 0 20px 25px hsl(30 8% 6% / 0.08), 0 8px 10px hsl(30 8% 6% / 0.04);
+    --shadow-2xl: 0 25px 50px hsl(30 8% 6% / 0.12);
+    --shadow-glow: 0 0 20px hsl(20 85% 51% / 0.15), 0 0 40px hsl(20 85% 51% / 0.08);
+    --shadow-inner: inset 0 1px 3px hsl(30 8% 6% / 0.08);
+
+    /* Premium typography system */
+    --font-display: var(--font-space-grotesk), ui-sans-serif, system-ui, sans-serif;
+    --font-body: var(--font-instrument-sans), ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .dark {
+    /* Warm dark: deep charcoal with warmth */
+    --background: 25 10% 7%;             /* #141312 - warm near-black */
+    --foreground: 40 15% 95%;            /* warm off-white */
+    --card: 25 10% 9%;
+    --card-foreground: 40 15% 95%;
+    --popover: 25 10% 9%;
+    --popover-foreground: 40 15% 95%;
+
+    /* Signature accent pops more on dark */
+    --primary: 20 85% 58%;               /* #F07430 - slightly brighter rust for dark bg */
+    --primary-foreground: 25 10% 98%;
+    --primary-muted: 20 50% 18%;
+    --primary-glow: 20 90% 68%;
+
+    --secondary: 25 8% 16%;
+    --secondary-foreground: 40 15% 90%;
+    --secondary-muted: 25 6% 13%;
+
+    --muted: 25 6% 16%;
+    --muted-foreground: 30 5% 55%;
+
+    --accent: 30 10% 18%;
+    --accent-foreground: 40 15% 90%;
+    --accent-muted: 30 8% 15%;
+
+    --success: 155 50% 45%;
+    --success-foreground: 155 60% 96%;
+    --success-muted: 155 35% 18%;
+
+    --warning: 35 85% 55%;
+    --warning-foreground: 35 20% 10%;
+    --warning-muted: 35 55% 18%;
+
+    --error: 345 65% 60%;
+    --error-foreground: 345 60% 96%;
+    --error-muted: 345 40% 18%;
+
+    --info: 210 55% 55%;
+    --info-foreground: 210 40% 98%;
+    --info-muted: 210 35% 18%;
+
+    --border: 25 8% 20%;
+    --input: 25 8% 20%;
+    --ring: 20 85% 58%;
+
+    /* Gradients adapted for dark mode */
+    --gradient-primary: linear-gradient(135deg, hsl(20 85% 58%), hsl(15 80% 64%));
+    --gradient-primary-hover: linear-gradient(135deg, hsl(15 80% 64%), hsl(10 75% 68%));
+    --gradient-surface: linear-gradient(180deg, hsl(25 10% 9%), hsl(25 8% 11%));
+    --gradient-card: linear-gradient(180deg, hsl(25 10% 10% / 0.9), hsl(25 8% 8% / 0.7));
+    --gradient-subtle: linear-gradient(135deg, hsl(25 8% 12%), hsl(30 10% 10%));
+    --gradient-warm-overlay: linear-gradient(180deg, hsl(20 50% 40% / 0.08), hsl(35 30% 45% / 0.04));
+
+    /* Shadows with higher opacity for dark backgrounds */
+    --shadow-xs: 0 1px 2px hsl(0 0% 0% / 0.2);
+    --shadow-sm: 0 1px 3px hsl(0 0% 0% / 0.25), 0 1px 2px hsl(0 0% 0% / 0.15);
+    --shadow-md: 0 4px 6px hsl(0 0% 0% / 0.3), 0 2px 4px hsl(0 0% 0% / 0.2);
+    --shadow-lg: 0 10px 15px hsl(0 0% 0% / 0.35), 0 4px 6px hsl(0 0% 0% / 0.25);
+    --shadow-xl: 0 20px 25px hsl(0 0% 0% / 0.4), 0 8px 10px hsl(0 0% 0% / 0.3);
+    --shadow-2xl: 0 25px 50px hsl(0 0% 0% / 0.5);
+    --shadow-glow: 0 0 20px hsl(20 85% 58% / 0.2), 0 0 40px hsl(20 85% 58% / 0.1);
+    --shadow-inner: inset 0 1px 3px hsl(0 0% 0% / 0.3);
+  }
+}
+
+@layer base {
+  /* Branded text selection */
+  ::selection {
+    background-color: hsl(20 85% 51% / 0.25);
+    color: hsl(20 85% 40%);
+  }
+
+  .dark ::selection {
+    background-color: hsl(20 85% 58% / 0.3);
+    color: hsl(20 85% 70%);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+
+    /* Subtle background grain/noise texture */
+    background-image:
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E"),
+      var(--gradient-surface);
+    background-repeat: repeat, no-repeat;
+    background-size: 200px 200px, 100% 100%;
+    background-attachment: fixed, fixed;
+  }
+
+  .dark body {
+    background-image:
+      url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"),
+      var(--gradient-surface);
+  }
+
+  /* Space Grotesk for all headings - geometric, distinctive */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.025em;
+    text-wrap: balance;
+    line-height: 1.15;
+  }
+
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 4vw, 2.5rem);
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+  }
+
+  h3 {
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.2;
+  }
+
+  h4 {
+    font-size: clamp(1.1rem, 2vw, 1.375rem);
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 1.25;
+  }
+
+  h5, h6 {
+    font-size: clamp(1rem, 1.5vw, 1.125rem);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+
+  /* Paragraphs with optimal readability */
+  p {
+    text-wrap: pretty;
+    line-height: 1.65;
+  }
+
+  /* Small text utility */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+}
+
+@layer utilities {
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(8px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+}
