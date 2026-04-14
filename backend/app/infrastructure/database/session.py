@@ -1,18 +1,21 @@
 """Database session management and configuration."""
 
+import os
 from typing import Generator
 from sqlmodel import SQLModel, create_engine, Session, select
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool, QueuePool
 
 from app.core.config import settings
 
-# Create engine with connection pooling
+# Use NullPool in serverless environments (Vercel), QueuePool locally
+_is_serverless = os.environ.get("VERCEL") or os.environ.get("DISABLE_STARTUP_DB")
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,  # Verify connections before use
-    echo=settings.DEBUG,  # Log SQL queries in debug mode
+    poolclass=NullPool if _is_serverless else QueuePool,
+    **({} if _is_serverless else {"pool_size": 5, "max_overflow": 10, "pool_pre_ping": True}),
+    echo=False,
 )
 
 # Session factory
