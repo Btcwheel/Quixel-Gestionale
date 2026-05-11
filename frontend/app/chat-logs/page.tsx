@@ -2,7 +2,6 @@
 
 import DashboardLayout from "../dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -13,23 +12,77 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Stars, MessageSquare, Clock, DollarSign } from "lucide-react";
-import { formatDateTime, formatCurrency, getProviderIcon } from "@/lib/utils";
+import { formatDateTime, formatCurrency } from "@/lib/utils";
+import { chatLogsApi } from "@/lib/api-endpoints";
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
-const sampleChats = [
-  { id: "1", ai_account_id: "1", account_name: "OpenAI #1", provider: "openai", model: "GPT-4 Turbo", prompt: "Build a REST API with FastAPI...", response: "Here's a complete FastAPI setup...", tokens_used: 2450, cost: 0.085, rating: 5, created_at: "2024-08-15T15:30:00Z", project: "SaaS Platform" },
-  { id: "2", ai_account_id: "3", account_name: "Anthropic #1", provider: "anthropic", model: "Claude 3 Opus", prompt: "Refactor this React component...", response: "I'd suggest using useMemo for...", tokens_used: 1800, cost: 0.045, rating: 4, created_at: "2024-08-15T14:20:00Z", project: "Mobile App" },
-  { id: "3", ai_account_id: "4", account_name: "Google #1", provider: "google", model: "Gemini Pro", prompt: "Write unit tests for...", response: "Here are comprehensive tests...", tokens_used: 3200, cost: 0.032, rating: 3, created_at: "2024-08-15T13:10:00Z", project: "API Gateway" },
-  { id: "4", ai_account_id: "2", account_name: "OpenAI #2", provider: "openai", model: "GPT-3.5 Turbo", prompt: "Explain the architecture...", response: "The system uses a microservices...", tokens_used: 1500, cost: 0.003, rating: 4, created_at: "2024-08-15T12:45:00Z", project: "SaaS Platform" },
-  { id: "5", ai_account_id: "6", account_name: "Groq #1", provider: "groq", model: "Mixtral 8x7B", prompt: "Generate a Docker compose...", response: "Here's a production-ready...", tokens_used: 800, cost: 0.000, rating: 5, created_at: "2024-08-15T11:30:00Z", project: "Health Portal" },
+type ChatLogApiItem = {
+  id: string;
+  ai_account_id: string;
+  project_id?: string | null;
+  role: "system" | "user" | "assistant";
+  content: string;
+  tokens_used: number;
+  cost_credits: number;
+  rating?: number | null;
+  created_at: string;
+  model_used?: string | null;
+};
+
+type ChatLogRow = {
+  id: string;
+  ai_account_id: string;
+  project_id?: string | null;
+  role: "system" | "user" | "assistant";
+  content: string;
+  tokens_used: number;
+  cost_credits: number;
+  rating?: number | null;
+  created_at: string;
+  model_used?: string | null;
+};
+
+const fallbackChats: ChatLogRow[] = [
+  { id: "1", ai_account_id: "1", role: "assistant", content: "Build a REST API with FastAPI...", tokens_used: 2450, cost_credits: 0.085, rating: 5, created_at: "2024-08-15T15:30:00Z", model_used: "GPT-4 Turbo", project_id: "1" },
+  { id: "2", ai_account_id: "3", role: "assistant", content: "Refactor this React component...", tokens_used: 1800, cost_credits: 0.045, rating: 4, created_at: "2024-08-15T14:20:00Z", model_used: "Claude 3 Opus", project_id: "2" },
+  { id: "3", ai_account_id: "4", role: "assistant", content: "Write unit tests for...", tokens_used: 3200, cost_credits: 0.032, rating: 3, created_at: "2024-08-15T13:10:00Z", model_used: "Gemini Pro", project_id: "4" },
 ];
 
 export default function ChatLogsPage() {
   const [ratingFilter, setRatingFilter] = useState<number | null>(null);
 
+  const { data, isError } = useQuery({
+    queryKey: ["chat-logs"],
+    queryFn: async () => {
+      const res = await chatLogsApi.list(1, 100);
+      const items = (res.data?.items ?? []) as unknown as ChatLogApiItem[];
+      return items.map((item) => ({
+        id: item.id,
+        ai_account_id: item.ai_account_id,
+        project_id: item.project_id ?? null,
+        role: item.role,
+        content: item.content,
+        tokens_used: item.tokens_used ?? 0,
+        cost_credits: item.cost_credits ?? 0,
+        rating: item.rating ?? null,
+        created_at: item.created_at,
+        model_used: item.model_used ?? null,
+      }));
+    },
+    retry: false,
+  });
+
+  const chats = isError && !data ? fallbackChats : data ?? [];
   const filteredChats = ratingFilter
-    ? sampleChats.filter((c) => c.rating === ratingFilter)
-    : sampleChats;
+    ? chats.filter((chat) => chat.rating === ratingFilter)
+    : chats;
+
+  const totalTokens = chats.reduce((sum, chat) => sum + chat.tokens_used, 0);
+  const totalCost = chats.reduce((sum, chat) => sum + chat.cost_credits, 0);
+  const avgRating = chats.length
+    ? (chats.reduce((sum, chat) => sum + (chat.rating || 0), 0) / chats.length).toFixed(1)
+    : "0.0";
 
   return (
     <DashboardLayout>
@@ -39,7 +92,6 @@ export default function ChatLogsPage() {
           <p className="text-muted-foreground">Review AI conversations and rate quality.</p>
         </div>
 
-        {/* Summary */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
@@ -48,7 +100,7 @@ export default function ChatLogsPage() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <MessageSquare className="h-5 w-5 text-primary" />
-                <span className="text-2xl font-bold">{sampleChats.length}</span>
+                <span className="text-2xl font-bold">{chats.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -57,9 +109,7 @@ export default function ChatLogsPage() {
               <CardTitle className="text-sm">Total Tokens</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {sampleChats.reduce((sum, c) => sum + c.tokens_used, 0).toLocaleString()}
-              </div>
+              <div className="text-2xl font-bold">{totalTokens.toLocaleString()}</div>
             </CardContent>
           </Card>
           <Card>
@@ -69,9 +119,7 @@ export default function ChatLogsPage() {
             <CardContent>
               <div className="flex items-center gap-2">
                 <DollarSign className="h-5 w-5 text-green-500" />
-                <span className="text-2xl font-bold">
-                  {formatCurrency(sampleChats.reduce((sum, c) => sum + c.cost, 0))}
-                </span>
+                <span className="text-2xl font-bold">{formatCurrency(totalCost)}</span>
               </div>
             </CardContent>
           </Card>
@@ -82,26 +130,46 @@ export default function ChatLogsPage() {
             <CardContent>
               <div className="flex items-center gap-1">
                 <Stars className="h-5 w-5 text-yellow-500" />
-                <span className="text-2xl font-bold">
-                  {(sampleChats.reduce((sum, c) => sum + (c.rating || 0), 0) / sampleChats.length).toFixed(1)}
-                </span>
+                <span className="text-2xl font-bold">{avgRating}</span>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Chat Logs */}
+        <div className="flex flex-wrap gap-2">
+          <Badge
+            variant={ratingFilter === null ? "default" : "outline"}
+            className="cursor-pointer"
+            onClick={() => setRatingFilter(null)}
+          >
+            All
+          </Badge>
+          {[5, 4, 3, 2, 1].map((rating) => (
+            <Badge
+              key={rating}
+              variant={ratingFilter === rating ? "default" : "outline"}
+              className="cursor-pointer"
+              onClick={() => setRatingFilter(rating)}
+            >
+              {rating} stars
+            </Badge>
+          ))}
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Recent Conversations</CardTitle>
           </CardHeader>
           <CardContent>
+            {isError && !data && (
+              <p className="mb-4 text-sm text-muted-foreground">Uso dati di fallback locale.</p>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>AI Account</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Project</TableHead>
-                  <TableHead>Prompt</TableHead>
+                  <TableHead>Content</TableHead>
                   <TableHead>Tokens</TableHead>
                   <TableHead>Cost</TableHead>
                   <TableHead>Rating</TableHead>
@@ -111,23 +179,18 @@ export default function ChatLogsPage() {
               <TableBody>
                 {filteredChats.map((chat) => (
                   <TableRow key={chat.id}>
+                    <TableCell className="text-sm capitalize">{chat.role}</TableCell>
+                    <TableCell className="text-sm">{chat.project_id || "—"}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <span>{getProviderIcon(chat.provider)}</span>
-                        <div>
-                          <div className="text-sm font-medium">{chat.account_name}</div>
-                          <div className="text-xs text-muted-foreground">{chat.model}</div>
-                        </div>
+                      <div className="max-w-[320px] truncate text-sm" title={chat.content}>
+                        {chat.content}
                       </div>
-                    </TableCell>
-                    <TableCell className="text-sm">{chat.project}</TableCell>
-                    <TableCell>
-                      <div className="max-w-[250px] truncate text-sm" title={chat.prompt}>
-                        {chat.prompt}
-                      </div>
+                      {chat.model_used && (
+                        <div className="text-xs text-muted-foreground">{chat.model_used}</div>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm">{chat.tokens_used.toLocaleString()}</TableCell>
-                    <TableCell className="text-sm font-medium">{formatCurrency(chat.cost)}</TableCell>
+                    <TableCell className="text-sm font-medium">{formatCurrency(chat.cost_credits)}</TableCell>
                     <TableCell>
                       {chat.rating ? (
                         <div className="flex items-center gap-0.5">

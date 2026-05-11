@@ -2,11 +2,12 @@
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
+from sqlmodel import Session, select, func
+from sqlalchemy import or_
 
 from app.infrastructure.database.session import get_db
 from app.infrastructure.security.dependencies import get_current_user
-from app.domain.models import Client, AdminUser
+from app.domain.models import Client, Project, AdminUser
 from app.domain.schemas import (
     ClientCreate, ClientUpdate, ClientResponse, MessageResponse,
     PaginatedResponse
@@ -23,25 +24,42 @@ async def list_clients(
     sort_by: Optional[str] = Query(None),
     sort_order: str = Query("asc", pattern="^(asc|desc)$"),
     is_active: Optional[bool] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user)
 ):
     """List all clients with pagination and filtering."""
-    service = ClientService(db)
-    
-    filters = {}
+    query = select(Client)
+    count_query = select(func.count()).select_from(Client)
+
     if is_active is not None:
-        filters["is_active"] = is_active
-    
-    clients, total = service.get_many_with_count(
-        page=page,
-        page_size=page_size,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-    
+        query = query.where(Client.is_active == is_active)
+        count_query = count_query.where(Client.is_active == is_active)
+
+    if search:
+        like = f"%{search}%"
+        search_filter = or_(Client.name.ilike(like), Client.email.ilike(like), Client.website.ilike(like))
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+
+    total = db.exec(count_query).one()
+
+    if sort_by and hasattr(Client, sort_by):
+        column = getattr(Client, sort_by)
+        query = query.order_by(column.desc() if sort_order == "desc" else column.asc())
+
+    skip = (page - 1) * page_size
+    query = query.offset(skip).limit(page_size)
+    clients = list(db.exec(query).all())
+
+    service = ClientService(db)
+    result = []
+    for client in clients:
+        project_count = db.exec(select(func.count()).select_from(Project).where(Project.client_id == client.id)).one()
+        result.append({**client.model_dump(), "project_count": project_count})
+
     return {
-        "items": clients,
+        "items": result,
         "total": total,
         "page": page,
         "page_size": page_size,

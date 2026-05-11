@@ -37,14 +37,18 @@ async def list_external_resources(
         query = query.where(ExternalResource.project_id == project_id)
         count_query = count_query.where(ExternalResource.project_id == project_id)
     if resource_type:
-        query = query.where(ExternalResource.resource_type == resource_type)
-        count_query = count_query.where(ExternalResource.resource_type == resource_type)
+        try:
+            resource_type_enum = ExternalResourceType(resource_type)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid resource type: {resource_type}")
+        query = query.where(ExternalResource.resource_type == resource_type_enum)
+        count_query = count_query.where(ExternalResource.resource_type == resource_type_enum)
     if is_active is not None:
         query = query.where(ExternalResource.is_active == is_active)
         count_query = count_query.where(ExternalResource.is_active == is_active)
 
     # Get total count
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
 
     # Apply sorting
     if sort_by and hasattr(ExternalResource, sort_by):
@@ -73,7 +77,10 @@ async def create_external_resource(
     current_user: AdminUser = Depends(get_current_user)
 ):
     """Create a new external resource."""
-    resource = ExternalResource.model_validate(resource_in)
+    resource_data = resource_in.model_dump()
+    if "metadata" in resource_data and "extra_metadata" not in resource_data:
+        resource_data["extra_metadata"] = resource_data.pop("metadata")
+    resource = ExternalResource.model_validate(resource_data)
     db.add(resource)
     db.commit()
     db.refresh(resource)
@@ -106,6 +113,8 @@ async def update_external_resource(
         raise HTTPException(status_code=404, detail="External resource not found")
 
     obj_data = resource_in.model_dump(exclude_unset=True)
+    if "metadata" in obj_data and "extra_metadata" not in obj_data:
+        obj_data["extra_metadata"] = obj_data.pop("metadata")
     for key, value in obj_data.items():
         setattr(resource, key, value)
 
@@ -166,7 +175,7 @@ async def trigger_sync(
         return {"message": f"Sync task queued for resource {resource.id}"}
 
     # Sync all resources of a given type
-    sync_type = sync_request.type or "all"
+    sync_type = sync_request.sync_type or "all"
     queued = 0
 
     if sync_type in ("all", "github"):
@@ -199,7 +208,7 @@ async def get_resource_sync_logs(
     query = select(SyncLog).where(SyncLog.resource_id == resource_id)
     count_query = select(SyncLog.id).where(SyncLog.resource_id == resource_id)
 
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
 
     skip = (page - 1) * page_size
     query = query.order_by(SyncLog.started_at.desc()).offset(skip).limit(page_size)

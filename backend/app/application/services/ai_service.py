@@ -1,7 +1,7 @@
 """AI Account and Pool service for business logic."""
 
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select, func
 
 from app.application.services.base import BaseService
@@ -24,6 +24,8 @@ class AIAccountService(BaseService[AIAccount, AIAccountCreate, AIAccountUpdate])
         
         # Create account without the plain api_key field
         account_data = obj_in.model_dump(exclude={"api_key"})
+        if "metadata" in account_data and "extra_metadata" not in account_data:
+            account_data["extra_metadata"] = account_data.pop("metadata")
         account = AIAccount(**account_data, api_key_encrypted=encrypted_key)
         
         self.db.add(account)
@@ -49,7 +51,7 @@ class AIAccountService(BaseService[AIAccount, AIAccountCreate, AIAccountUpdate])
         account.total_requests += 1
         account.total_tokens_in += credit_data.tokens_in
         account.total_tokens_out += credit_data.tokens_out
-        account.last_used_at = datetime.utcnow()
+        account.last_used_at = datetime.now(timezone.utc)
         
         if credit_data.response_time_ms and account.avg_response_time_ms:
             # Update running average
@@ -98,7 +100,7 @@ class AIAccountService(BaseService[AIAccount, AIAccountCreate, AIAccountUpdate])
         if not account:
             return None
         
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Get chat logs for the period
         chats = self.db.exec(
@@ -146,7 +148,7 @@ class AIAccountService(BaseService[AIAccount, AIAccountCreate, AIAccountUpdate])
             return None
         
         account.api_key_encrypted = encrypt_secret(new_api_key)
-        account.last_rotated_at = datetime.utcnow()
+        account.last_rotated_at = datetime.now(timezone.utc)
         
         self.db.add(account)
         self.db.commit()

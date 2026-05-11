@@ -1,5 +1,6 @@
 """Alerts API routes."""
 
+from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, select
@@ -14,6 +15,7 @@ from app.domain.schemas import (
 router = APIRouter()
 
 
+@router.get("", response_model=dict)
 @router.get("/", response_model=dict)
 async def list_alerts(
     page: int = Query(1, ge=1),
@@ -23,11 +25,15 @@ async def list_alerts(
     project_id: Optional[str] = Query(None),
     alert_type: Optional[str] = Query(None),
     severity: Optional[str] = Query(None),
+    resolved: Optional[bool] = Query(None),
     is_resolved: Optional[bool] = Query(None),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user)
 ):
     """List all alerts with pagination and filtering."""
+    if resolved is not None and is_resolved is None:
+        is_resolved = resolved
+
     query = select(Alert)
     count_query = select(Alert.id)
     
@@ -46,7 +52,7 @@ async def list_alerts(
         count_query = count_query.where(Alert.is_resolved == is_resolved)
     
     # Get total count
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
     
     # Apply sorting
     if sort_by and hasattr(Alert, sort_by):
@@ -75,7 +81,10 @@ async def create_alert(
     current_user: AdminUser = Depends(get_current_user)
 ):
     """Create a new alert."""
-    alert = Alert.model_validate(alert_in)
+    alert_data = alert_in.model_dump()
+    if "metadata" in alert_data and "extra_metadata" not in alert_data:
+        alert_data["extra_metadata"] = alert_data.pop("metadata")
+    alert = Alert.model_validate(alert_data)
     db.add(alert)
     db.commit()
     db.refresh(alert)
@@ -107,15 +116,29 @@ async def resolve_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
     
-    from datetime import datetime
     alert.is_resolved = resolve_data.is_resolved
-    alert.resolved_at = datetime.utcnow()
+    alert.resolved_at = datetime.now(timezone.utc)
     alert.resolved_by = resolve_data.resolved_by or current_user.username
     
     db.add(alert)
     db.commit()
     db.refresh(alert)
     return alert
+
+
+@router.post("/{alert_id}/resolve", response_model=AlertResponse)
+async def resolve_alert_compat(
+    alert_id: str,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Backward-compatible resolve endpoint for older clients."""
+    return await resolve_alert(
+        alert_id=alert_id,
+        resolve_data=AlertResolveUpdate(),
+        db=db,
+        current_user=current_user,
+    )
 
 
 @router.delete("/{alert_id}", response_model=MessageResponse)

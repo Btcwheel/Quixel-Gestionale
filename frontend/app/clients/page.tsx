@@ -25,28 +25,37 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, Building2, Edit, Trash2, ExternalLink } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { clientsApi } from "@/lib/api-endpoints";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import type { Client, ClientCreate } from "@/types";
 import Link from "next/link";
 
-const sampleClients: Client[] = [
-  { id: "1", name: "Acme Corp", email: "contact@acme.com", phone: "+1 555-0101", website: "https://acme.com", project_count: 5, created_at: "2024-01-15T10:00:00Z", updated_at: "2024-01-15T10:00:00Z", tags: ["enterprise", "saas"] },
-  { id: "2", name: "TechStart Inc", email: "hello@techstart.io", phone: "+1 555-0102", website: "https://techstart.io", project_count: 3, created_at: "2024-02-20T10:00:00Z", updated_at: "2024-02-20T10:00:00Z", tags: ["startup", "mobile"] },
-  { id: "3", name: "GlobalMedia", email: "info@globalmedia.com", website: "https://globalmedia.com", project_count: 8, created_at: "2024-03-10T10:00:00Z", updated_at: "2024-03-10T10:00:00Z", tags: ["media", "enterprise"] },
-  { id: "4", name: "FinServe Ltd", email: "contact@finserve.com", project_count: 2, created_at: "2024-04-05T10:00:00Z", updated_at: "2024-04-05T10:00:00Z", tags: ["fintech"] },
-  { id: "5", name: "HealthTech Solutions", email: "admin@healthtech.com", project_count: 4, created_at: "2024-05-12T10:00:00Z", updated_at: "2024-05-12T10:00:00Z", tags: ["healthcare", "saas"] },
-];
-
 export default function ClientsPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
-  const [newClient, setNewClient] = useState<ClientCreate>({ name: "", email: "", phone: "", website: "" });
+  const [newClient, setNewClient] = useState<ClientCreate>({
+    name: "",
+    email: "",
+    phone: "",
+    website: "",
+    notes: "",
+    tags: [],
+  });
+  const [newTagsInput, setNewTagsInput] = useState("");
   const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [editClient, setEditClient] = useState<ClientCreate>({ name: "", email: "", phone: "", website: "" });
+  const [editClient, setEditClient] = useState<ClientCreate>({
+    name: "",
+    email: "",
+    phone: "",
+    website: "",
+    notes: "",
+    tags: [],
+  });
+  const [editTagsInput, setEditTagsInput] = useState("");
 
   const { data: clientsData } = useQuery({
     queryKey: ["clients", search],
@@ -57,14 +66,37 @@ export default function ClientsPage() {
     retry: false,
   });
 
-  const displayClients = clientsData?.length ? clientsData : sampleClients;
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => clientsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["clients"] });
+    },
+    onError: (error: any) => {
+      console.error("Error deleting client:", error);
+      const status = error.response?.status;
+      if (status === 404) {
+        alert("Client non trovato. Potrebbe essere già stato eliminato.");
+      } else {
+        alert("Errore nell'eliminazione del client. Riprova.");
+      }
+    },
+  });
+
+  const displayClients = clientsData ?? [];
 
   const handleCreateClient = async () => {
     if (!newClient.name) return;
     try {
-      await clientsApi.create(newClient);
+      await clientsApi.create({
+        ...newClient,
+        tags: newTagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
       setOpen(false);
-      setNewClient({ name: "", email: "", phone: "", website: "" });
+      setNewClient({ name: "", email: "", phone: "", website: "", notes: "", tags: [] });
+      setNewTagsInput("");
     } catch (error) {
       console.error("Error creating client:", error);
       alert("Errore nella creazione del client");
@@ -73,16 +105,31 @@ export default function ClientsPage() {
 
   const handleOpenEdit = (client: Client) => {
     setEditingClient(client);
-    setEditClient({ name: client.name, email: client.email, phone: client.phone, website: client.website });
+    setEditClient({
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      website: client.website,
+      notes: client.notes,
+      tags: client.tags,
+    });
+    setEditTagsInput(client.tags?.join(", ") || "");
     setEditOpen(true);
   };
 
   const handleUpdateClient = async () => {
     if (!editingClient) return;
     try {
-      await clientsApi.update(editingClient.id, editClient);
+      await clientsApi.update(editingClient.id, {
+        ...editClient,
+        tags: editTagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
       setEditOpen(false);
       setEditingClient(null);
+      setEditTagsInput("");
     } catch (error) {
       console.error("Error updating client:", error);
       alert("Errore nell'aggiornamento del client");
@@ -90,13 +137,8 @@ export default function ClientsPage() {
   };
 
   const handleDeleteClient = async (id: string) => {
-    if (!confirm("Sei sicuro di voler eliminare questo client?")) return;
-    try {
-      await clientsApi.delete(id);
-    } catch (error) {
-      console.error("Error deleting client:", error);
-      alert("Errore nell'eliminazione del client");
-    }
+    if (!confirm("Sei sicuro di voler eliminare questo client? Verranno eliminati anche tutti i progetti associati.")) return;
+    deleteMutation.mutate(id);
   };
 
   return (
@@ -163,7 +205,18 @@ export default function ClientsPage() {
                   <Label htmlFor="notes">Notes</Label>
                   <Textarea
                     id="notes"
+                    value={newClient.notes || ""}
+                    onChange={(e) => setNewClient({ ...newClient, notes: e.target.value })}
                     placeholder="Additional notes about this client..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tags">Tags</Label>
+                  <Input
+                    id="tags"
+                    value={newTagsInput}
+                    onChange={(e) => setNewTagsInput(e.target.value)}
+                    placeholder="enterprise, saas, priority"
                   />
                 </div>
               </div>
@@ -202,64 +255,74 @@ export default function ClientsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {displayClients.map((client) => (
-                  <TableRow key={client.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                          <Building2 className="h-5 w-5 text-primary" />
+                {displayClients.length > 0 ? (
+                  displayClients.map((client) => (
+                    <TableRow key={client.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                            <Building2 className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <Link href={`/clients/${client.id}`} className="font-medium hover:underline">
+                              {client.name}
+                            </Link>
+                            {client.website && (
+                              <a
+                                href={client.website}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-xs text-muted-foreground flex items-center gap-1"
+                              >
+                                {client.website.replace(/^https?:\/\//, "")}
+                                <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
                         </div>
-                        <div>
-                          <Link href={`/clients/${client.id}`} className="font-medium hover:underline">
-                            {client.name}
-                          </Link>
-                          {client.website && (
-                            <a
-                              href={client.website}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-xs text-muted-foreground flex items-center gap-1"
-                            >
-                              {client.website.replace(/^https?:\/\//, "")}
-                              <ExternalLink className="h-3 w-3" />
-                            </a>
-                          )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          {client.email && <div>{client.email}</div>}
+                          {client.phone && <div className="text-muted-foreground">{client.phone}</div>}
                         </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="text-sm">
-                        {client.email && <div>{client.email}</div>}
-                        {client.phone && <div className="text-muted-foreground">{client.phone}</div>}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{client.project_count || 0} projects</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {client.tags?.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(client.created_at)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(client)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClient(client.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{client.project_count || 0} projects</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {client.tags?.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {formatDate(client.created_at)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(client)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteClient(client.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <div className="py-10 text-center text-sm text-muted-foreground">
+                        No clients found.
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -306,6 +369,23 @@ export default function ClientsPage() {
                   id="edit-website"
                   value={editClient.website || ""}
                   onChange={(e) => setEditClient({ ...editClient, website: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={editClient.notes || ""}
+                  onChange={(e) => setEditClient({ ...editClient, notes: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-tags">Tags</Label>
+                <Input
+                  id="edit-tags"
+                  value={editTagsInput}
+                  onChange={(e) => setEditTagsInput(e.target.value)}
+                  placeholder="enterprise, saas, priority"
                 />
               </div>
             </div>

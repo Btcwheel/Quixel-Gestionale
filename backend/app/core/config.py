@@ -3,7 +3,7 @@
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 # Load .env file
@@ -13,6 +13,7 @@ load_dotenv(dotenv_path=env_path)
 
 class Settings(BaseSettings):
     """Application settings from environment variables."""
+    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env")
     
     # Application
     APP_NAME: str = "AI & SaaS Project Tracker"
@@ -42,7 +43,14 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
+        "http://localhost:3001",
+        "http://localhost:3002",
+        "http://localhost:3003",
+        "http://localhost:4100",
         "http://localhost:8000",
+        "https://quixel-gestionale.vercel.app",
+        "https://frontend-git-*.vercel.app",
+        "https://frontend-*.vercel.app",
     ]
 
     # External API Keys (Optional)
@@ -73,10 +81,5 @@ class Settings(BaseSettings):
     CREDIT_LOW_THRESHOLD_PERCENT: float = 20.0  # Alert when credits < 20%
     CREDIT_CRITICAL_THRESHOLD_PERCENT: float = 10.0  # Critical when < 10%
     
-    class Config:
-        case_sensitive = True
-        env_file = ".env"
-
-
 # Global settings instance
 settings = Settings()

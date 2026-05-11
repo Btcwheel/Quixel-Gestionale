@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Request, HTTPException, status, Depends
 from sqlmodel import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.infrastructure.database.session import get_db
-from app.domain.models import WebhookEvent, SyncLog
+from app.domain.models import WebhookEvent, ExternalResource, SyncLog
 from app.domain.enums import WebhookProvider, SyncStatus
 
 router = APIRouter()
@@ -69,7 +69,7 @@ async def process_deployment_event(payload: dict, event_type: str, db: Session):
     from app.domain.enums import SyncStatus as SyncStatusEnum
     sync_status = SyncStatusEnum.SUCCESS if deployment_status == "success" else SyncStatusEnum.FAILED
 
-    resource.last_sync_at = datetime.utcnow()
+    resource.last_sync_at = datetime.now(timezone.utc)
     resource.last_sync_status = sync_status
 
     # Create sync log
@@ -79,8 +79,8 @@ async def process_deployment_event(payload: dict, event_type: str, db: Session):
         status=sync_status,
         action="deploy",
         triggered_by="webhook",
-        started_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
         extra_metadata={
             "deployment_id": deployment_id,
             "event_type": event_type,

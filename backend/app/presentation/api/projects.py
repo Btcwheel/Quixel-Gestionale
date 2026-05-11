@@ -2,7 +2,8 @@
 
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session
+from sqlmodel import Session, select, func
+from sqlalchemy import or_
 
 from app.infrastructure.database.session import get_db
 from app.infrastructure.security.dependencies import get_current_user
@@ -11,6 +12,7 @@ from app.domain.schemas import (
     ProjectCreate, ProjectUpdate, ProjectResponse, MessageResponse,
     ProjectAnalytics
 )
+from app.domain.enums import ProjectStatus
 from app.application.services.project_service import ProjectService
 
 router = APIRouter()
@@ -24,27 +26,40 @@ async def list_projects(
     sort_order: str = Query("asc", pattern="^(asc|desc)$"),
     client_id: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    search: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     current_user: AdminUser = Depends(get_current_user)
 ):
     """List all projects with pagination and filtering."""
-    service = ProjectService(db)
-    
-    filters = {}
+    query = select(Project)
+    count_query = select(func.count()).select_from(Project)
+
     if client_id:
-        filters["client_id"] = client_id
+        query = query.where(Project.client_id == client_id)
+        count_query = count_query.where(Project.client_id == client_id)
     if status:
-        filters["status"] = status
-    
-    projects, total = service.get_many(
-        page=page,
-        page_size=page_size,
-        filters=filters if filters else None,
-        sort_by=sort_by,
-        sort_order=sort_order
-    )
-    
-    # Enrich with client names and resource counts
+        try:
+            status_enum = ProjectStatus(status)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid project status: {status}")
+        query = query.where(Project.status == status_enum)
+        count_query = count_query.where(Project.status == status_enum)
+    if search:
+        like = f"%{search}%"
+        search_filter = or_(Project.name.ilike(like), Project.description.ilike(like))
+        query = query.where(search_filter)
+        count_query = count_query.where(search_filter)
+
+    total = db.exec(count_query).one()
+
+    if sort_by and hasattr(Project, sort_by):
+        column = getattr(Project, sort_by)
+        query = query.order_by(column.desc() if sort_order == "desc" else column.asc())
+
+    skip = (page - 1) * page_size
+    projects = list(db.exec(query.offset(skip).limit(page_size)).all())
+
+    service = ProjectService(db)
     result = []
     for project in projects:
         details = service.get_with_details(project.id)

@@ -2,51 +2,56 @@
 
 import DashboardLayout from "../../dashboard-layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getStatusColor, formatDate, formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import { Building2, Calendar, DollarSign, Tag } from "lucide-react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-
-const sampleProjects = [
-  { id: "1", name: "SaaS Platform", status: "active", start_date: "2024-06-01", budget: 50000, description: "A complete SaaS platform for enterprise resource management." },
-  { id: "2", name: "Mobile App Redesign", status: "planning", start_date: "2024-09-01", budget: 25000, description: "Complete redesign of the iOS and Android applications." },
-  { id: "3", name: "API Integration", status: "completed", start_date: "2024-01-15", end_date: "2024-04-30", budget: 15000, description: "Third-party API integration for payment processing." },
-];
+import { useQuery } from "@tanstack/react-query";
+import { clientsApi, projectsApi } from "@/lib/api-endpoints";
+import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
 
 export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
 
-  const client = {
-    id: clientId,
-    name: "Acme Corp",
-    email: "contact@acme.com",
-    phone: "+1 555-0101",
-    website: "https://acme.com",
-    address: "123 Business St, New York, NY 10001",
-    notes: "Key enterprise client. Primary contact is John Smith, CTO.",
-    tags: ["enterprise", "saas"],
-  };
+  const { data: client } = useQuery({
+    queryKey: ["client", clientId],
+    queryFn: async () => {
+      const res = await clientsApi.get(clientId);
+      return res.data;
+    },
+    enabled: !!clientId,
+    retry: false,
+  });
+
+  const { data: projects } = useQuery({
+    queryKey: ["client-projects", clientId],
+    queryFn: async () => {
+      const res = await projectsApi.list(1, 100, undefined, clientId);
+      return res.data?.items ?? [];
+    },
+    enabled: !!clientId,
+    retry: false,
+  });
+
+  const projectList = projects ?? [];
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">{client.name}</h2>
+          <h2 className="text-2xl font-bold tracking-tight">{client?.name || "Client not found"}</h2>
           <p className="text-muted-foreground">Client details and associated projects.</p>
         </div>
 
-        {/* Client Info */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-muted-foreground">Email</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-medium">{client.email}</div>
+              <div className="text-lg font-medium">{client?.email || "—"}</div>
             </CardContent>
           </Card>
           <Card>
@@ -54,7 +59,7 @@ export default function ClientDetailPage() {
               <CardTitle className="text-sm text-muted-foreground">Phone</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-medium">{client.phone}</div>
+              <div className="text-lg font-medium">{client?.phone || "—"}</div>
             </CardContent>
           </Card>
           <Card>
@@ -62,9 +67,13 @@ export default function ClientDetailPage() {
               <CardTitle className="text-sm text-muted-foreground">Website</CardTitle>
             </CardHeader>
             <CardContent>
-              <a href={client.website} className="text-lg font-medium text-primary hover:underline">
-                {client.website}
-              </a>
+              {client?.website ? (
+                <a href={client.website} className="text-lg font-medium text-primary hover:underline">
+                  {client.website}
+                </a>
+              ) : (
+                <div className="text-lg font-medium">—</div>
+              )}
             </CardContent>
           </Card>
           <Card>
@@ -72,12 +81,11 @@ export default function ClientDetailPage() {
               <CardTitle className="text-sm text-muted-foreground">Projects</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-lg font-medium">{sampleProjects.length} active</div>
+              <div className="text-lg font-medium">{projectList.length} active</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tags & Notes */}
         <div className="grid gap-4 md:grid-cols-2">
           <Card>
             <CardHeader>
@@ -87,10 +95,16 @@ export default function ClientDetailPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex gap-2 flex-wrap">
-                {client.tags?.map((tag) => (
-                  <Badge key={tag} variant="secondary">{tag}</Badge>
-                ))}
+              <div className="flex flex-wrap gap-2">
+                {client?.tags?.length ? (
+                  client.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary">
+                      {tag}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground">No tags</span>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -98,53 +112,56 @@ export default function ClientDetailPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
-                Address
+                Notes
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">{client.address}</p>
+              <p className="text-muted-foreground">{client?.notes || "No notes available."}</p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Projects */}
         <Card>
           <CardHeader>
             <CardTitle>Projects</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {sampleProjects.map((project) => (
-                <Card key={project.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between">
-                      <CardTitle className="text-base">{project.name}</CardTitle>
-                      <Badge className={getStatusColor(project.status)}>
-                        {project.status}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {project.description}
-                    </p>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span>Start: {formatDate(project.start_date)}</span>
+            {projectList.length > 0 ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {projectList.map((project) => (
+                  <Card key={project.id} className="hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <CardTitle className="text-base">{project.name}</CardTitle>
+                        <Badge className={getStatusColor(project.status)}>{project.status}</Badge>
                       </div>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <DollarSign className="h-4 w-4" />
-                        <span>{formatCurrency(project.budget)}</span>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {project.description || "No description."}
+                      </p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Calendar className="h-4 w-4" />
+                          <span>Start: {project.start_date ? formatDate(project.start_date) : "—"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <DollarSign className="h-4 w-4" />
+                          <span>{project.budget ? formatCurrency(project.budget) : "—"}</span>
+                        </div>
                       </div>
-                    </div>
-                    <Button variant="outline" size="sm" className="w-full" asChild>
-                      <Link href={`/projects/${project.id}`}>View Details</Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      <Button variant="outline" size="sm" className="w-full" asChild>
+                        <Link href={`/projects/${project.id}`}>View Details</Link>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-6 py-10 text-center text-sm text-muted-foreground">
+                No projects available for this client.
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

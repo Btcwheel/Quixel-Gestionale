@@ -2,10 +2,10 @@
 
 from fastapi import APIRouter, Request, HTTPException, status, Depends
 from sqlmodel import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.infrastructure.database.session import get_db
-from app.domain.models import WebhookEvent, SyncLog
+from app.domain.models import WebhookEvent, ExternalResource, SyncLog
 from app.domain.enums import WebhookProvider, SyncStatus
 
 router = APIRouter()
@@ -65,8 +65,8 @@ async def process_supabase_event(payload: dict, event_type: str, db: Session):
         status=SyncStatus.SUCCESS,
         action=event_type.replace(".", "_"),
         triggered_by="webhook",
-        started_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
         extra_metadata={
             "project_ref": project_ref,
             "event_type": event_type,

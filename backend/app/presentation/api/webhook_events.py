@@ -39,7 +39,7 @@ async def list_webhook_events(
         query = query.where(WebhookEvent.processed == processed)
         count_query = count_query.where(WebhookEvent.processed == processed)
 
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
 
     skip = (page - 1) * page_size
     query = query.order_by(WebhookEvent.received_at.desc()).offset(skip).limit(page_size)

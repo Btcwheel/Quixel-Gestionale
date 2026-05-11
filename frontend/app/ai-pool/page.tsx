@@ -37,15 +37,6 @@ import { getProviderIcon, formatDate } from "@/lib/utils";
 import { useState } from "react";
 import type { AIAccountCreate } from "@/types";
 
-const sampleAccounts = [
-  { id: "1", provider: "openai", model: "GPT-4 Turbo", account_name: "OpenAI #1", credits_remaining: 850, credits_total: 1000, priority: 1, is_active: true, is_rate_limited: false, concurrent_requests: 3, last_used_at: "2024-08-15T14:30:00Z" },
-  { id: "2", provider: "openai", model: "GPT-3.5 Turbo", account_name: "OpenAI #2", credits_remaining: 2200, credits_total: 3000, priority: 2, is_active: true, is_rate_limited: false, concurrent_requests: 5, last_used_at: "2024-08-15T15:00:00Z" },
-  { id: "3", provider: "anthropic", model: "Claude 3 Opus", account_name: "Anthropic #1", credits_remaining: 45, credits_total: 500, priority: 1, is_active: true, is_rate_limited: false, concurrent_requests: 2, last_used_at: "2024-08-15T12:00:00Z" },
-  { id: "4", provider: "google", model: "Gemini Pro", account_name: "Google #1", credits_remaining: 1800, credits_total: 2000, priority: 1, is_active: true, is_rate_limited: false, concurrent_requests: 4, last_used_at: "2024-08-15T14:45:00Z" },
-  { id: "5", provider: "mistral", model: "Mistral Large", account_name: "Mistral #1", credits_remaining: 950, credits_total: 1000, priority: 1, is_active: true, is_rate_limited: false, concurrent_requests: 3, last_used_at: "2024-08-15T13:30:00Z" },
-  { id: "6", provider: "groq", model: "Mixtral 8x7B", account_name: "Groq #1", credits_remaining: 5000, credits_total: 5000, priority: 1, is_active: true, is_rate_limited: false, concurrent_requests: 10, last_used_at: "2024-08-15T15:10:00Z" },
-];
-
 export default function AIPoolPage() {
   const [providerFilter, setProviderFilter] = useState("all");
   const [open, setOpen] = useState(false);
@@ -84,7 +75,7 @@ export default function AIPoolPage() {
     }
   };
 
-  const displayAccounts = accountsData?.length ? accountsData : sampleAccounts;
+  const displayAccounts = accountsData ?? [];
   const filteredAccounts = providerFilter !== "all"
     ? displayAccounts.filter((a) => a.provider === providerFilter)
     : displayAccounts;
@@ -248,7 +239,8 @@ export default function AIPoolPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAccounts.map((account) => {
+                {filteredAccounts.length > 0 ? (
+                  filteredAccounts.map((account) => {
                   const creditPercent = (account.credits_remaining / account.credits_total) * 100;
                   const isLowCredit = creditPercent < 10;
 
@@ -325,7 +317,16 @@ export default function AIPoolPage() {
                       </TableCell>
                     </TableRow>
                   );
-                })}
+                })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <div className="py-10 text-center text-sm text-muted-foreground">
+                        No AI accounts found.
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>

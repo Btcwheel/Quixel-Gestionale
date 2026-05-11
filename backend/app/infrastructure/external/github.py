@@ -1,7 +1,7 @@
 """GitHub API integration service."""
 
 from typing import Optional, List, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
@@ -116,7 +116,7 @@ class GitHubClient:
         repo_data = await self.get_repository(owner, repo)
         
         # Get recent commits (last 7 days)
-        since = datetime.utcnow() - timedelta(days=7)
+        since = datetime.now(timezone.utc) - timedelta(days=7)
         commits = await self.get_commits(owner, repo, since=since)
         
         # Get branches

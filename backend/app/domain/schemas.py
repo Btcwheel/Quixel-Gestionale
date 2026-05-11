@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 from app.domain.enums import (
     AIProvider, ProjectStatus, ExternalResourceType, SyncStatus,
-    WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType
+    WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType,
+    DiscussionProvider
 )
 
 # Generic type for pagination
@@ -55,30 +56,39 @@ class PaginationParams(BaseModel):
 class ClientCreate(BaseModel):
     """Schema for creating a client."""
     name: str = Field(..., min_length=1, max_length=255)
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     description: Optional[str] = None
     website: Optional[str] = None
-    contact_email: Optional[EmailStr] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
     is_active: bool = True
 
 
 class ClientUpdate(BaseModel):
     """Schema for updating a client."""
     name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
     description: Optional[str] = None
     website: Optional[str] = None
-    contact_email: Optional[EmailStr] = None
+    notes: Optional[str] = None
+    tags: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
 
 class ClientResponse(BaseModel):
     """Client response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     name: str
+    email: Optional[str]
+    phone: Optional[str]
     description: Optional[str]
     website: Optional[str]
-    contact_email: Optional[str]
+    notes: Optional[str]
+    tags: Optional[List[str]]
     is_active: bool
     created_at: datetime
     updated_at: datetime
@@ -91,6 +101,7 @@ class ClientResponse(BaseModel):
 
 class ProjectCreate(BaseModel):
     """Schema for creating a project."""
+    model_config = ConfigDict(populate_by_name=True)
     name: str = Field(..., min_length=1, max_length=255)
     description: Optional[str] = None
     status: ProjectStatus = ProjectStatus.PLANNING
@@ -104,6 +115,7 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     """Schema for updating a project."""
+    model_config = ConfigDict(populate_by_name=True)
     name: Optional[str] = None
     description: Optional[str] = None
     status: Optional[ProjectStatus] = None
@@ -116,7 +128,7 @@ class ProjectUpdate(BaseModel):
 
 class ProjectResponse(BaseModel):
     """Project response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     name: str
@@ -128,7 +140,7 @@ class ProjectResponse(BaseModel):
     end_date: Optional[datetime]
     budget: Optional[float]
     tags: Optional[List[str]]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     last_sync_at: Optional[datetime]
     github_activity_score: float
     vercel_deploy_count: int
@@ -143,6 +155,7 @@ class ProjectResponse(BaseModel):
 
 class ExternalResourceCreate(BaseModel):
     """Schema for creating an external resource."""
+    model_config = ConfigDict(populate_by_name=True)
     project_id: str
     resource_type: ExternalResourceType
     external_id: str = Field(..., max_length=255)
@@ -150,7 +163,7 @@ class ExternalResourceCreate(BaseModel):
     url: str = Field(..., max_length=500)
     owner: Optional[str] = None
     branch: Optional[str] = None
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     github_full_name: Optional[str] = None
     supabase_region: Optional[str] = None
     vercel_target: Optional[str] = None
@@ -158,10 +171,11 @@ class ExternalResourceCreate(BaseModel):
 
 class ExternalResourceUpdate(BaseModel):
     """Schema for updating an external resource."""
+    model_config = ConfigDict(populate_by_name=True)
     name: Optional[str] = None
     branch: Optional[str] = None
     is_active: Optional[bool] = None
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     github_full_name: Optional[str] = None
     supabase_region: Optional[str] = None
     vercel_target: Optional[str] = None
@@ -169,7 +183,7 @@ class ExternalResourceUpdate(BaseModel):
 
 class ExternalResourceResponse(BaseModel):
     """External resource response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     project_id: str
@@ -185,7 +199,7 @@ class ExternalResourceResponse(BaseModel):
     github_full_name: Optional[str]
     supabase_region: Optional[str]
     vercel_target: Optional[str]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     created_at: datetime
     updated_at: datetime
 
@@ -196,6 +210,7 @@ class ExternalResourceResponse(BaseModel):
 
 class AIAccountCreate(BaseModel):
     """Schema for creating an AI account."""
+    model_config = ConfigDict(populate_by_name=True)
     provider: AIProvider
     account_name: str = Field(..., min_length=1, max_length=255)
     api_key: str = Field(..., min_length=1)  # Will be encrypted
@@ -204,11 +219,12 @@ class AIAccountCreate(BaseModel):
     credit_limit_daily: Optional[float] = None
     priority: int = 0
     max_concurrent_requests: int = 5
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
 
 
 class AIAccountUpdate(BaseModel):
     """Schema for updating an AI account."""
+    model_config = ConfigDict(populate_by_name=True)
     account_name: Optional[str] = None
     api_key: Optional[str] = None  # Will be encrypted
     model_name: Optional[str] = None
@@ -217,12 +233,12 @@ class AIAccountUpdate(BaseModel):
     is_active: Optional[bool] = None
     priority: Optional[int] = None
     max_concurrent_requests: Optional[int] = None
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
 
 
 class AIAccountResponse(BaseModel):
     """AI account response schema (NO API KEY)."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     provider: AIProvider
@@ -241,7 +257,7 @@ class AIAccountResponse(BaseModel):
     total_tokens_out: int
     avg_response_time_ms: Optional[float]
     last_used_at: Optional[datetime]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     created_at: datetime
     updated_at: datetime
 
@@ -398,17 +414,18 @@ class AIPoolAssignmentResponse(BaseModel):
 
 class AlertCreate(BaseModel):
     """Schema for creating an alert."""
+    model_config = ConfigDict(populate_by_name=True)
     project_id: Optional[str] = None
     alert_type: AlertType
     severity: AlertSeverity
     title: str = Field(..., max_length=255)
     message: str
-    metadata: Optional[dict] = None
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
 
 
 class AlertResponse(BaseModel):
     """Alert response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     project_id: Optional[str]
@@ -419,7 +436,7 @@ class AlertResponse(BaseModel):
     is_resolved: bool
     resolved_at: Optional[datetime]
     resolved_by: Optional[str]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     created_at: datetime
     updated_at: datetime
 
@@ -473,7 +490,7 @@ class SyncTriggerRequest(BaseModel):
 
 class SyncLogResponse(BaseModel):
     """Sync log response schema."""
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     resource_id: str
@@ -485,7 +502,7 @@ class SyncLogResponse(BaseModel):
     completed_at: Optional[datetime]
     duration_seconds: Optional[int]
     error_message: Optional[str]
-    metadata: Optional[dict]
+    metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
 
 
 class WebhookResponse(BaseModel):
@@ -522,13 +539,14 @@ class ProjectAnalytics(BaseModel):
     """Project-level analytics."""
     project_id: str
     project_name: str
+    period_days: int
     total_chats: int
     total_tokens_used: int
     total_cost_credits: float
     avg_chat_rating: Optional[float]
-    github_commits_last_7d: int
-    vercel_deployments_count: int
-    last_activity_at: Optional[datetime]
+    github_activity_score: float
+    vercel_deploy_count: int
+    last_sync_at: Optional[datetime]
 
 
 class AIUsageReport(BaseModel):
@@ -536,8 +554,7 @@ class AIUsageReport(BaseModel):
     account_id: str
     account_name: str
     provider: AIProvider
-    period_start: datetime
-    period_end: datetime
+    period_days: int
     total_requests: int
     total_tokens_in: int
     total_tokens_out: int
@@ -557,3 +574,61 @@ class ExportRequest(BaseModel):
     date_from: Optional[datetime] = None
     date_to: Optional[datetime] = None
     include_metadata: bool = True
+
+
+# ============================================
+# Discussion Schemas
+# ============================================
+
+class ProjectDiscussionCreate(BaseModel):
+    """Schema for creating a project discussion."""
+    project_id: str
+    provider: DiscussionProvider
+    model_used: Optional[str] = None
+    title: str = Field(..., min_length=1, max_length=255)
+    raw_content: str
+    tags: Optional[List[str]] = None
+
+
+class ProjectDiscussionUpdate(BaseModel):
+    """Schema for updating a project discussion."""
+    title: Optional[str] = None
+    insights: Optional[str] = None
+    code_snippets: Optional[str] = None
+    decisions: Optional[str] = None
+    action_items: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class ProjectDiscussionResponse(BaseModel):
+    """Project discussion response schema."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    project_id: str
+    provider: DiscussionProvider
+    model_used: Optional[str]
+    title: str
+    raw_content: str
+    insights: str
+    code_snippets: str
+    decisions: str
+    action_items: str
+    tags: Optional[List[str]]
+    created_at: datetime
+    updated_at: datetime
+
+
+class DiscussionExtractRequest(BaseModel):
+    """Request to extract insights from raw content."""
+    raw_content: str
+    provider: Optional[DiscussionProvider] = None
+
+
+class DiscussionExtractResponse(BaseModel):
+    """Response with extracted insights."""
+    insights: str
+    code_snippets: str
+    decisions: str
+    action_items: str
+    detected_provider: Optional[str] = None

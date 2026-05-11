@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Request, HTTPException, status, Depends
 from sqlmodel import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.infrastructure.database.session import get_db
 from app.domain.models import WebhookEvent, ExternalResource, SyncLog
@@ -77,8 +77,8 @@ async def process_push_event(payload: dict, db: Session):
         status=SyncStatus.SUCCESS,
         action="push",
         triggered_by="webhook",
-        started_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
         extra_metadata={
             "ref": payload.get("ref"),
             "commits": len(payload.get("commits", [])),
@@ -88,7 +88,7 @@ async def process_push_event(payload: dict, db: Session):
     db.add(sync_log)
 
     # Update resource last_sync
-    resource.last_sync_at = datetime.utcnow()
+    resource.last_sync_at = datetime.now(timezone.utc)
     resource.last_sync_status = SyncStatus.SUCCESS
 
     db.add(resource)
@@ -124,8 +124,8 @@ async def process_pr_event(payload: dict, db: Session):
         status=SyncStatus.SUCCESS,
         action=f"pr_{action}",
         triggered_by="webhook",
-        started_at=datetime.utcnow(),
-        completed_at=datetime.utcnow(),
+        started_at=datetime.now(timezone.utc),
+        completed_at=datetime.now(timezone.utc),
         extra_metadata={
             "pr_number": pr_number,
             "pr_title": pr_title,

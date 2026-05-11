@@ -1,6 +1,6 @@
 """SQLModel database models with full relationships."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, List
 from uuid import uuid4
 
@@ -8,12 +8,18 @@ from sqlmodel import (
     SQLModel, Field, Relationship, Column, UniqueConstraint,
     String, Integer, Float, Boolean, DateTime, Text, JSON, ForeignKey, Index
 )
-from sqlalchemy import func
+from sqlalchemy import func, Enum as SAEnum
+from pydantic import ConfigDict
 
 from app.domain.enums import (
     AIProvider, ProjectStatus, ExternalResourceType, SyncStatus,
-    WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType
+    WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType,
+    DiscussionProvider
 )
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 # ============================================
@@ -21,9 +27,10 @@ from app.domain.enums import (
 # ============================================
 class BaseModel(SQLModel):
     """Base model with common fields for all models."""
+    model_config = ConfigDict(from_attributes=True)
     id: str = Field(default_factory=lambda: str(uuid4()), primary_key=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
 
 
 # ============================================
@@ -35,16 +42,21 @@ class Client(BaseModel, table=True):
     __tablename__ = "clients"
     
     name: str = Field(index=True, max_length=255)
+    email: Optional[str] = Field(default=None, index=True, max_length=255)
+    phone: Optional[str] = Field(default=None, max_length=50)
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
     website: Optional[str] = Field(default=None, max_length=500)
-    contact_email: Optional[str] = Field(default=None, max_length=255)
+    notes: Optional[str] = Field(default=None, sa_column=Column(Text))
+    tags: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     is_active: bool = Field(default=True)
     
     # Relationships
     projects: List["Project"] = Relationship(back_populates="client")
     
-    class Config:
-        json_schema_extra = {"example": {"name": "Acme Corp", "description": "Leading innovator"}}
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"example": {"name": "Acme Corp", "description": "Leading innovator"}},
+    )
 
 
 class Project(BaseModel, table=True):
@@ -53,7 +65,7 @@ class Project(BaseModel, table=True):
     
     name: str = Field(index=True, max_length=255)
     description: Optional[str] = Field(default=None, sa_column=Column(Text))
-    status: ProjectStatus = Field(default=ProjectStatus.PLANNING, sa_column=Column(String(50)))
+    status: ProjectStatus = Field(default=ProjectStatus.PLANNING, sa_column=Column(SAEnum(ProjectStatus), nullable=False))
     client_id: str = Field(foreign_key="clients.id", index=True)
     start_date: Optional[datetime] = Field(default=None)
     end_date: Optional[datetime] = Field(default=None)
@@ -72,9 +84,12 @@ class Project(BaseModel, table=True):
     ai_pool_assignments: List["ProjectAIPoolAssignment"] = Relationship(back_populates="project")
     alerts: List["Alert"] = Relationship(back_populates="project")
     documents: List["ProjectDocument"] = Relationship(back_populates="project")
+    discussions: List["ProjectDiscussion"] = Relationship(back_populates="project")
     
-    class Config:
-        json_schema_extra = {"example": {"name": "E-commerce Platform", "status": "active"}}
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"example": {"name": "E-commerce Platform", "status": "active"}},
+    )
 
 
 class ExternalResource(BaseModel, table=True):
@@ -116,7 +131,7 @@ class SyncLog(BaseModel, table=True):
     status: SyncStatus = Field(sa_column=Column(String(50)))
     action: str = Field(max_length=100)  # e.g., "push", "deploy", "backup"
     triggered_by: str = Field(default="manual", max_length=50)  # manual/webhook/scheduled
-    started_at: datetime = Field(default_factory=datetime.utcnow)
+    started_at: datetime = Field(default_factory=utc_now)
     completed_at: Optional[datetime] = Field(default=None)
     duration_seconds: Optional[int] = Field(default=None, sa_column=Column(Integer))
     error_message: Optional[str] = Field(default=None, sa_column=Column(Text))
@@ -175,7 +190,7 @@ class ProjectAIPoolAssignment(BaseModel, table=True):
     project_id: str = Field(foreign_key="projects.id", index=True)
     ai_account_id: str = Field(foreign_key="ai_accounts.id", index=True)
     is_primary: bool = Field(default=False)  # primary account for routing
-    assigned_at: datetime = Field(default_factory=datetime.utcnow)
+    assigned_at: datetime = Field(default_factory=utc_now)
     assigned_by: Optional[str] = Field(default=None, max_length=255)
     extra_metadata: Optional[dict] = Field(default=None, sa_column=Column("metadata", JSON))
     
@@ -219,7 +234,7 @@ class ChatLog(BaseModel, table=True):
     error_message: Optional[str] = Field(default=None, sa_column=Column(Text))
 
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), index=True)
     )
 
@@ -244,15 +259,56 @@ class ProjectDocument(BaseModel, table=True):
     # Relationships
     project: Optional[Project] = Relationship(back_populates="documents")
 
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "title": "Project Requirements Document",
                 "document_type": "pdr",
                 "file_extension": ".py",
                 "content": "# Content here..."
             }
-        }
+        },
+    )
+
+
+class ProjectDiscussion(BaseModel, table=True):
+    """Project discussions extracted from AI chats."""
+    __tablename__ = "project_discussions"
+
+    project_id: str = Field(foreign_key="projects.id", index=True)
+    
+    # Discussion metadata
+    provider: DiscussionProvider = Field(sa_column=Column(String(50)))
+    model_used: Optional[str] = Field(default=None, max_length=100)
+    title: str = Field(max_length=255)
+    
+    # Raw content
+    raw_content: str = Field(sa_column=Column(Text))  # Original pasted chat
+    
+    # Extracted content
+    insights: str = Field(default="", sa_column=Column(Text))  # Extracted key insights
+    code_snippets: str = Field(default="", sa_column=Column(Text))  # Important code snippets
+    decisions: str = Field(default="", sa_column=Column(Text))  # Key decisions made
+    action_items: str = Field(default="", sa_column=Column(Text))  # Todos/action items
+    
+    # Tags
+    tags: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    
+    # Relationships
+    project: Optional[Project] = Relationship(back_populates="discussions")
+
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "title": "Discussion on auth flow",
+                "provider": "anthropic",
+                "model_used": "claude-3-opus",
+                "insights": "- Use JWT with refresh tokens\\n- Implement rate limiting",
+            }
+        },
+    )
 
 
 # ============================================
@@ -271,8 +327,10 @@ class AdminUser(BaseModel, table=True):
     failed_login_attempts: int = Field(default=0, sa_column=Column(Integer))
     locked_until: Optional[datetime] = Field(default=None)
     
-    class Config:
-        json_schema_extra = {"example": {"username": "admin", "email": "admin@example.com"}}
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"example": {"username": "admin", "email": "admin@example.com"}},
+    )
 
 
 class APIKey(BaseModel, table=True):
@@ -310,15 +368,17 @@ class Alert(BaseModel, table=True):
     # Relationships
     project: Optional[Project] = Relationship(back_populates="alerts")
     
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
             "example": {
                 "alert_type": "credit_low",
                 "severity": "high",
                 "title": "AI Credits Running Low",
                 "message": "Account OpenAI-1 has less than 10% credits remaining"
             }
-        }
+        },
+    )
 
 
 # ============================================
@@ -339,12 +399,13 @@ class WebhookEvent(BaseModel, table=True):
     processed_at: Optional[datetime] = Field(default=None)
     error_message: Optional[str] = Field(default=None, sa_column=Column(Text))
     received_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=utc_now,
         sa_column=Column(DateTime(timezone=True), server_default=func.now(), index=True)
     )
-    
-    class Config:
-        json_schema_extra = {"example": {"provider": "github", "event_type": "push"}}
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={"example": {"provider": "github", "event_type": "push"}},
+    )
 
 
 # ============================================

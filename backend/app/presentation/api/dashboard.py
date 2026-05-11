@@ -1,8 +1,8 @@
 """Dashboard API routes - aggregated statistics and analytics."""
 
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, select, func
-from datetime import datetime, timedelta
 
 from app.infrastructure.database.session import get_db
 from app.infrastructure.security.dependencies import get_current_user
@@ -10,7 +10,7 @@ from app.domain.models import (
     Client, Project, AIAccount, ChatLog, ExternalResource,
     SyncLog, Alert, AdminUser
 )
-from app.domain.enums import ProjectStatus, SyncStatus
+from app.domain.enums import ProjectStatus, SyncStatus, ExternalResourceType, WebhookProvider
 
 router = APIRouter()
 
@@ -21,7 +21,7 @@ async def get_dashboard_stats(
     current_user: AdminUser = Depends(get_current_user)
 ):
     """Get comprehensive dashboard statistics."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     
     # Client stats
@@ -53,7 +53,7 @@ async def get_dashboard_stats(
     # Deployment stats (from external resources)
     deployments_today = db.exec(
         select(func.count(ExternalResource.id)).where(
-            ExternalResource.resource_type == "vercel_deployment",
+            ExternalResource.resource_type == ExternalResourceType.VERCEL_DEPLOYMENT,
             ExternalResource.last_sync_at >= today_start
         )
     ).one()
@@ -84,6 +84,57 @@ async def get_dashboard_stats(
     }
 
 
+@router.get("/activity", response_model=list[dict])
+async def get_activity(
+    days: int = Query(7, ge=1, le=365),
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Get a simple time series for chats and deployments."""
+    from datetime import date
+
+    today = datetime.now(timezone.utc).date()
+    rows = []
+    for offset in range(days - 1, -1, -1):
+        current_day = today - timedelta(days=offset)
+        day_start = datetime.combine(current_day, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+
+        chats = db.exec(
+            select(func.count(ChatLog.id)).where(
+                ChatLog.created_at >= day_start,
+                ChatLog.created_at < day_end
+            )
+        ).one()
+
+        deployments = db.exec(
+            select(func.count(SyncLog.id)).where(
+                SyncLog.provider == WebhookProvider.VERCEL,
+                SyncLog.action == "deploy",
+                SyncLog.started_at >= day_start,
+                SyncLog.started_at < day_end
+            )
+        ).one()
+
+        rows.append({
+            "date": current_day.strftime("%a"),
+            "chats": chats,
+            "deployments": deployments,
+        })
+
+    return rows
+
+
+@router.get("/recent", response_model=dict)
+async def get_recent_activity_alias(
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Backward-compatible alias for recent activity."""
+    return await get_recent_activity(limit=limit, db=db, current_user=current_user)
+
+
 @router.get("/projects-by-status", response_model=dict)
 async def get_projects_by_status(
     db: Session = Depends(get_db),
@@ -107,7 +158,7 @@ async def get_ai_usage_by_provider(
     current_user: AdminUser = Depends(get_current_user)
 ):
     """Get AI usage aggregated by provider."""
-    cutoff_date = datetime.utcnow() - timedelta(days=days)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
     
     accounts = db.exec(select(AIAccount)).all()
     

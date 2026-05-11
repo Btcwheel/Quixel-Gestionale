@@ -47,7 +47,7 @@ async def list_chat_logs(
         count_query = count_query.where(ChatLog.role == role)
     
     # Get total count
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
     
     # Apply sorting
     if sort_by and hasattr(ChatLog, sort_by):

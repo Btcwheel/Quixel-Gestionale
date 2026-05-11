@@ -63,6 +63,7 @@ from app.presentation.api.dashboard import router as dashboard_router
 from app.presentation.webhooks.github_webhook import router as github_webhook_router
 from app.presentation.webhooks.supabase_webhook import router as supabase_webhook_router
 from app.presentation.webhooks.vercel_webhook import router as vercel_webhook_router
+from app.presentation.api.discussions import router as discussions_router
 
 app.include_router(auth_router, prefix=f"{settings.API_PREFIX}/auth", tags=["Authentication"])
 app.include_router(clients_router, prefix=f"{settings.API_PREFIX}/clients", tags=["Clients"])
@@ -75,6 +76,7 @@ app.include_router(api_keys_router, prefix=f"{settings.API_PREFIX}/api-keys", ta
 app.include_router(webhook_events_router, prefix=f"{settings.API_PREFIX}/webhook-events", tags=["Webhook Events"])
 app.include_router(alerts_router, prefix=f"{settings.API_PREFIX}/alerts", tags=["Alerts"])
 app.include_router(dashboard_router, prefix=f"{settings.API_PREFIX}/dashboard", tags=["Dashboard"])
+app.include_router(discussions_router, prefix=f"{settings.API_PREFIX}/discussions", tags=["Discussions"])
 
 # Webhook routes (no auth required, signature verification instead)
 app.include_router(github_webhook_router, prefix="/webhooks/github", tags=["Webhooks"])

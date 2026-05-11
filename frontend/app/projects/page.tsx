@@ -32,30 +32,42 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Search, FolderKanban, Edit, Trash2, Eye } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { projectsApi, clientsApi } from "@/lib/api-endpoints";
 import { formatDate, formatCurrency, getStatusColor } from "@/lib/utils";
 import { useState } from "react";
 import type { Project, ProjectCreate } from "@/types";
 import Link from "next/link";
 
-const sampleProjects: Project[] = [
-  { id: "1", client_id: "1", name: "SaaS Platform", client_name: "Acme Corp", status: "active", start_date: "2024-06-01", budget: 50000, tags: ["web", "saas"], created_at: "2024-05-15T10:00:00Z", updated_at: "2024-05-15T10:00:00Z" },
-  { id: "2", client_id: "2", name: "Mobile App", client_name: "TechStart Inc", status: "active", start_date: "2024-07-15", budget: 35000, tags: ["mobile", "ios"], created_at: "2024-06-20T10:00:00Z", updated_at: "2024-06-20T10:00:00Z" },
-  { id: "3", client_id: "3", name: "Marketing Site", client_name: "GlobalMedia", status: "completed", start_date: "2024-01-10", end_date: "2024-03-30", budget: 12000, tags: ["web"], created_at: "2024-01-05T10:00:00Z", updated_at: "2024-01-05T10:00:00Z" },
-  { id: "4", client_id: "4", name: "API Gateway", client_name: "FinServe Ltd", status: "planning", start_date: "2024-09-01", budget: 28000, tags: ["backend", "api"], created_at: "2024-08-01T10:00:00Z", updated_at: "2024-08-01T10:00:00Z" },
-  { id: "5", client_id: "5", name: "Health Portal", client_name: "HealthTech Solutions", status: "active", start_date: "2024-08-01", budget: 45000, tags: ["web", "healthcare"], created_at: "2024-07-15T10:00:00Z", updated_at: "2024-07-15T10:00:00Z" },
-  { id: "6", client_id: "1", name: "Data Pipeline", client_name: "Acme Corp", status: "archived", start_date: "2023-06-01", end_date: "2024-01-15", budget: 20000, tags: ["backend", "data"], created_at: "2023-05-20T10:00:00Z", updated_at: "2023-05-20T10:00:00Z" },
-];
-
 export default function ProjectsPage() {
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [open, setOpen] = useState(false);
-  const [newProject, setNewProject] = useState<ProjectCreate>({ client_id: "", name: "", description: "" });
+  const [newProject, setNewProject] = useState<ProjectCreate>({
+    client_id: "",
+    name: "",
+    description: "",
+    status: "planning",
+    budget: undefined,
+    tags: [],
+    metadata: {},
+  });
+  const [newBudgetInput, setNewBudgetInput] = useState("");
+  const [newTagsInput, setNewTagsInput] = useState("");
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [editProject, setEditProject] = useState<ProjectCreate>({ client_id: "", name: "", description: "" });
+  const [editProject, setEditProject] = useState<ProjectCreate>({
+    client_id: "",
+    name: "",
+    description: "",
+    status: "planning",
+    budget: undefined,
+    tags: [],
+    metadata: {},
+  });
+  const [editBudgetInput, setEditBudgetInput] = useState("");
+  const [editTagsInput, setEditTagsInput] = useState("");
 
   const { data: projectsData } = useQuery({
     queryKey: ["projects", search, statusFilter],
@@ -66,7 +78,23 @@ export default function ProjectsPage() {
     retry: false,
   });
 
-  const displayProjects = projectsData?.length ? projectsData : sampleProjects;
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => projectsApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["projects"] });
+    },
+    onError: (error: any) => {
+      console.error("Error deleting project:", error);
+      const status = error.response?.status;
+      if (status === 404) {
+        alert("Progetto non trovato. Potrebbe essere già stato eliminato.");
+      } else {
+        alert("Errore nell'eliminazione del progetto. Riprova.");
+      }
+    },
+  });
+
+  const displayProjects = projectsData ?? [];
   const filteredProjects = statusFilter !== "all"
     ? displayProjects.filter((p) => p.status === statusFilter)
     : displayProjects;
@@ -74,9 +102,26 @@ export default function ProjectsPage() {
   const handleCreateProject = async () => {
     if (!newProject.name) return;
     try {
-      await projectsApi.create(newProject);
+      await projectsApi.create({
+        ...newProject,
+        budget: newBudgetInput ? Number(newBudgetInput) : undefined,
+        tags: newTagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
       setOpen(false);
-      setNewProject({ client_id: "", name: "", description: "" });
+      setNewProject({
+        client_id: "",
+        name: "",
+        description: "",
+        status: "planning",
+        budget: undefined,
+        tags: [],
+        metadata: {},
+      });
+      setNewBudgetInput("");
+      setNewTagsInput("");
     } catch (error) {
       console.error("Error creating project:", error);
       alert("Errore nella creazione del progetto");
@@ -85,16 +130,35 @@ export default function ProjectsPage() {
 
   const handleOpenEdit = (project: Project) => {
     setEditingProject(project);
-    setEditProject({ client_id: project.client_id, name: project.name, description: project.description });
+    setEditProject({
+      client_id: project.client_id,
+      name: project.name,
+      description: project.description,
+      status: project.status,
+      budget: project.budget,
+      tags: project.tags,
+      metadata: project.metadata,
+    });
+    setEditBudgetInput(project.budget?.toString() || "");
+    setEditTagsInput(project.tags?.join(", ") || "");
     setEditOpen(true);
   };
 
   const handleUpdateProject = async () => {
     if (!editingProject) return;
     try {
-      await projectsApi.update(editingProject.id, editProject);
+      await projectsApi.update(editingProject.id, {
+        ...editProject,
+        budget: editBudgetInput ? Number(editBudgetInput) : undefined,
+        tags: editTagsInput
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+      });
       setEditOpen(false);
       setEditingProject(null);
+      setEditBudgetInput("");
+      setEditTagsInput("");
     } catch (error) {
       console.error("Error updating project:", error);
       alert("Errore nell'aggiornamento del progetto");
@@ -103,12 +167,7 @@ export default function ProjectsPage() {
 
   const handleDeleteProject = async (id: string) => {
     if (!confirm("Sei sicuro di voler eliminare questo progetto?")) return;
-    try {
-      await projectsApi.delete(id);
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      alert("Errore nell'eliminazione del progetto");
-    }
+    deleteMutation.mutate(id);
   };
 
   return (
@@ -173,11 +232,16 @@ export default function ProjectsPage() {
                       id="budget"
                       type="number"
                       placeholder="50000"
+                      value={newBudgetInput}
+                      onChange={(e) => setNewBudgetInput(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="status">Status</Label>
-                    <Select defaultValue="planning">
+                    <Select
+                      value={newProject.status || "planning"}
+                      onValueChange={(value) => setNewProject({ ...newProject, status: value })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -189,6 +253,15 @@ export default function ProjectsPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="tags">Tags</Label>
+                  <Input
+                    id="tags"
+                    value={newTagsInput}
+                    onChange={(e) => setNewTagsInput(e.target.value)}
+                    placeholder="web, saas, urgent"
+                  />
                 </div>
               </div>
               <DialogFooter>
@@ -240,56 +313,66 @@ export default function ProjectsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProjects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                          <FolderKanban className="h-5 w-5 text-primary" />
+                {filteredProjects.length > 0 ? (
+                  filteredProjects.map((project) => (
+                    <TableRow key={project.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                            <FolderKanban className="h-5 w-5 text-primary" />
+                          </div>
+                          <Link href={`/projects/${project.id}`} className="font-medium hover:underline">
+                            {project.name}
+                          </Link>
                         </div>
-                        <Link href={`/projects/${project.id}`} className="font-medium hover:underline">
-                          {project.name}
-                        </Link>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Eye className="h-3 w-3 text-muted-foreground" />
-                        {project.client_name}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={getStatusColor(project.status)}>
-                        {project.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {project.budget ? formatCurrency(project.budget) : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {project.start_date ? formatDate(project.start_date) : "—"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1 flex-wrap">
-                        {project.tags?.map((tag) => (
-                          <Badge key={tag} variant="outline" className="text-xs">
-                            {tag}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(project)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteProject(project.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Eye className="h-3 w-3 text-muted-foreground" />
+                          {project.client_name}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getStatusColor(project.status)}>
+                          {project.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {project.budget ? formatCurrency(project.budget) : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {project.start_date ? formatDate(project.start_date) : "—"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap">
+                          {project.tags?.map((tag) => (
+                            <Badge key={tag} variant="outline" className="text-xs">
+                              {tag}
+                            </Badge>
+                          ))}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => handleOpenEdit(project)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDeleteProject(project.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={7}>
+                      <div className="py-10 text-center text-sm text-muted-foreground">
+                        No projects found.
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -317,6 +400,43 @@ export default function ProjectsPage() {
                   id="edit-description"
                   value={editProject.description || ""}
                   onChange={(e) => setEditProject({ ...editProject, description: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-budget">Budget</Label>
+                  <Input
+                    id="edit-budget"
+                    type="number"
+                    value={editBudgetInput}
+                    onChange={(e) => setEditBudgetInput(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-status">Status</Label>
+                  <Select
+                    value={editProject.status || "planning"}
+                    onValueChange={(value) => setEditProject({ ...editProject, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="planning">Planning</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="archived">Archived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-tags">Tags</Label>
+                <Input
+                  id="edit-tags"
+                  value={editTagsInput}
+                  onChange={(e) => setEditTagsInput(e.target.value)}
+                  placeholder="web, saas, urgent"
                 />
               </div>
             </div>

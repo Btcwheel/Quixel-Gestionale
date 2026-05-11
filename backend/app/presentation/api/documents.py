@@ -36,7 +36,7 @@ async def list_documents(
         count_query = count_query.where(ProjectDocument.document_type == document_type)
 
     # Get total count
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
 
     # Apply pagination
     skip = (page - 1) * page_size

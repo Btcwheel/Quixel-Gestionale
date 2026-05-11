@@ -2,11 +2,11 @@
 
 import hashlib
 import hmac
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Any
 
 import bcrypt
-from jose import jwt
+from jose import jwt, JWTError
 from cryptography.fernet import Fernet
 from passlib.context import CryptContext
 
@@ -71,9 +71,9 @@ def create_access_token(
 ) -> str:
     """Create a JWT access token."""
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode = {
         "sub": subject,
@@ -96,7 +96,7 @@ def decode_access_token(token: str) -> dict[str, Any]:
         return payload
     except jwt.ExpiredSignatureError:
         raise ValueError("Token has expired")
-    except jwt.InvalidTokenError:
+    except JWTError:
         raise ValueError("Invalid token")
 
 

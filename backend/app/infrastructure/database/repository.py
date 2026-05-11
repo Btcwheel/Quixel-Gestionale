@@ -56,15 +56,20 @@ class BaseRepository(Generic[ModelType]):
     
     def create(self, obj_in: SQLModel) -> ModelType:
         """Create a new record."""
-        db_obj = self.model.model_validate(obj_in)
+        obj_data = obj_in.model_dump(exclude_unset=True) if hasattr(obj_in, "model_dump") else dict(obj_in)
+        if "metadata" in obj_data and "extra_metadata" not in obj_data and hasattr(self.model, "extra_metadata"):
+            obj_data["extra_metadata"] = obj_data.pop("metadata")
+        db_obj = self.model.model_validate(obj_data)
         self.db.add(db_obj)
         self.db.commit()
         self.db.refresh(db_obj)
         return db_obj
-    
+
     def update(self, db_obj: ModelType, obj_in: SQLModel) -> ModelType:
         """Update an existing record."""
         obj_data = obj_in.model_dump(exclude_unset=True)
+        if "metadata" in obj_data and "extra_metadata" not in obj_data and hasattr(db_obj, "extra_metadata"):
+            obj_data["extra_metadata"] = obj_data.pop("metadata")
         for key, value in obj_data.items():
             setattr(db_obj, key, value)
         self.db.add(db_obj)

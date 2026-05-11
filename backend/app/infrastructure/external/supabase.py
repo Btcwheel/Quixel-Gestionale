@@ -7,6 +7,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import settings
+from app.domain.models import ExternalResource
 
 
 class SupabaseClient:
@@ -119,6 +120,3 @@ class SupabaseClient:
             "sha256"
         )
 
-
-# Import ExternalResource for type hints
-from app.domain.models import ExternalResource

@@ -1,7 +1,7 @@
 """Project service for business logic."""
 
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select, func
 
 from app.application.services.base import BaseService
@@ -49,7 +49,7 @@ class ProjectService(BaseService[Project, ProjectCreate, ProjectUpdate]):
         if not project:
             return None
         
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         
         # Chat statistics
         chat_count = self.db.exec(

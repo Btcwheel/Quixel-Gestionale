@@ -21,10 +21,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Don't auto-redirect in demo mode
       const token = getToken();
       if (token && token.startsWith("demo-")) {
-        // Demo mode: just reject but don't redirect
         return Promise.reject(error);
       }
       logout();
@@ -45,11 +43,14 @@ export function getToken(): string | null {
 export function setToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem("access_token", token);
+  // Also set a cookie so middleware can check auth server-side
+  document.cookie = `qx_auth=1; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
 }
 
 export function logout(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem("access_token");
+  document.cookie = "qx_auth=; path=/; max-age=0";
 }
 
 export function isAuthenticated(): boolean {

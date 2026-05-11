@@ -17,32 +17,32 @@ module.exports = {
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
+        border: "hsl(var(--border) / <alpha-value>)",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
+        background: "hsl(var(--background) / <alpha-value>)",
         foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: "hsl(var(--primary))",
+          DEFAULT: "hsl(var(--primary) / <alpha-value>)",
           foreground: "hsl(var(--primary-foreground))",
           muted: "hsl(var(--primary-muted))",
           glow: "hsl(var(--primary-glow))",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
+          DEFAULT: "hsl(var(--secondary) / <alpha-value>)",
           foreground: "hsl(var(--secondary-foreground))",
           muted: "hsl(var(--secondary-muted))",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
+          DEFAULT: "hsl(var(--destructive) / <alpha-value>)",
           foreground: "hsl(var(--destructive-foreground))",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
+          DEFAULT: "hsl(var(--muted) / <alpha-value>)",
           foreground: "hsl(var(--muted-foreground))",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
+          DEFAULT: "hsl(var(--accent) / <alpha-value>)",
           foreground: "hsl(var(--accent-foreground))",
           muted: "hsl(var(--accent-muted))",
         },
@@ -51,27 +51,26 @@ module.exports = {
           foreground: "hsl(var(--popover-foreground))",
         },
         card: {
-          DEFAULT: "hsl(var(--card))",
+          DEFAULT: "hsl(var(--card) / <alpha-value>)",
           foreground: "hsl(var(--card-foreground))",
         },
-        /* Semantic color tokens */
         success: {
-          DEFAULT: "hsl(var(--success))",
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
           foreground: "hsl(var(--success-foreground))",
           muted: "hsl(var(--success-muted))",
         },
         warning: {
-          DEFAULT: "hsl(var(--warning))",
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
           foreground: "hsl(var(--warning-foreground))",
           muted: "hsl(var(--warning-muted))",
         },
         error: {
-          DEFAULT: "hsl(var(--error))",
+          DEFAULT: "hsl(var(--error) / <alpha-value>)",
           foreground: "hsl(var(--error-foreground))",
           muted: "hsl(var(--error-muted))",
         },
         info: {
-          DEFAULT: "hsl(var(--info))",
+          DEFAULT: "hsl(var(--info) / <alpha-value>)",
           foreground: "hsl(var(--info-foreground))",
           muted: "hsl(var(--info-muted))",
         },
@@ -144,13 +143,13 @@ module.exports = {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.7" },
         },
-        "shimmer": {
+        shimmer: {
           "0%": { backgroundPosition: "-200% 0" },
           "100%": { backgroundPosition: "200% 0" },
         },
         "glow-pulse": {
-          "0%, 100%": { boxShadow: "0 0 20px hsl(20 85% 51% / 0.15)" },
-          "50%": { boxShadow: "0 0 30px hsl(20 85% 51% / 0.25)" },
+          "0%, 100%": { boxShadow: "0 0 20px hsl(226 70% 66% / 0.15)" },
+          "50%": { boxShadow: "0 0 30px hsl(226 70% 66% / 0.25)" },
         },
       },
       animation: {
@@ -165,7 +164,7 @@ module.exports = {
         "scale-in": "scale-in 0.25s ease-out",
         "scale-out": "scale-out 0.2s ease-in",
         "pulse-soft": "pulse-soft 2s ease-in-out infinite",
-        "shimmer": "shimmer 2s linear infinite",
+        shimmer: "shimmer 2s linear infinite",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
       },
       transitionTimingFunction: {
@@ -174,8 +173,8 @@ module.exports = {
         "ease-out-expo": "cubic-bezier(0.16, 1, 0.3, 1)",
       },
       fontFamily: {
-        sans: ["var(--font-instrument-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
-        display: ["var(--font-space-grotesk)", "ui-sans-serif", "system-ui", "sans-serif"],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        display: ["var(--font-display)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
     },
   },

@@ -1,6 +1,6 @@
 """Authentication API routes."""
 
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session, select
@@ -47,8 +47,7 @@ async def login(
         )
     
     # Update last login
-    from datetime import datetime
-    user.last_login_at = datetime.utcnow()
+    user.last_login_at = datetime.now(timezone.utc)
     user.failed_login_attempts = 0
     db.add(user)
     db.commit()

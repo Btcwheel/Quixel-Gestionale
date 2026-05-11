@@ -51,7 +51,7 @@ async def list_api_keys(
         query = query.where(APIKey.provider == provider)
         count_query = count_query.where(APIKey.provider == provider)
 
-    total = db.exec(count_query).count()
+    total = len(list(db.exec(count_query).all()))
 
     skip = (page - 1) * page_size
     query = query.order_by(APIKey.created_at.desc()).offset(skip).limit(page_size)

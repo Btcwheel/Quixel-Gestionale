@@ -1,7 +1,8 @@
 """Celery worker for async tasks (sync, alerts, etc.)."""
 
+import asyncio
 from celery import Celery
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session, select, cast, String
 
 from app.core.config import settings
@@ -45,6 +46,7 @@ celery_app.conf.update(
 def sync_github_resource(self, resource_id: str):
     """Sync a GitHub repository resource."""
     db = SessionLocal()
+    sync_log = None
     try:
         from app.domain.models import ExternalResource
         resource = db.get(ExternalResource, resource_id)
@@ -58,7 +60,7 @@ def sync_github_resource(self, resource_id: str):
             status=SyncStatus.IN_PROGRESS,
             action="sync",
             triggered_by="scheduled",
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
         db.add(sync_log)
         db.commit()
@@ -73,16 +75,16 @@ def sync_github_resource(self, resource_id: str):
             raise Exception("No GitHub API key found")
         
         client = GitHubClient(decrypt_secret(api_key.key_encrypted))
-        result = client.sync_repository(resource)
+        result = asyncio.run(client.sync_repository(resource))
         
         # Update sync log
         sync_log.status = SyncStatus.SUCCESS
-        sync_log.completed_at = datetime.utcnow()
+        sync_log.completed_at = datetime.now(timezone.utc)
         sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
         sync_log.extra_metadata = result
 
         # Update resource
-        resource.last_sync_at = datetime.utcnow()
+        resource.last_sync_at = datetime.now(timezone.utc)
         resource.last_sync_status = SyncStatus.SUCCESS
 
         db.commit()
@@ -90,11 +92,12 @@ def sync_github_resource(self, resource_id: str):
 
     except Exception as exc:
         # Update sync log with error
-        sync_log.status = SyncStatus.FAILED
-        sync_log.completed_at = datetime.utcnow()
-        sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
-        sync_log.error_message = str(exc)
-        db.commit()
+        if sync_log is not None:
+            sync_log.status = SyncStatus.FAILED
+            sync_log.completed_at = datetime.now(timezone.utc)
+            sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
+            sync_log.error_message = str(exc)
+            db.commit()
 
         # Retry with exponential backoff
         raise self.retry(exc=exc, countdown=2 ** self.request.retries)
@@ -106,6 +109,7 @@ def sync_github_resource(self, resource_id: str):
 def sync_supabase_resource(self, resource_id: str):
     """Sync a Supabase project resource."""
     db = SessionLocal()
+    sync_log = None
     try:
         from app.domain.models import ExternalResource, APIKey
         resource = db.get(ExternalResource, resource_id)
@@ -119,7 +123,7 @@ def sync_supabase_resource(self, resource_id: str):
             status=SyncStatus.IN_PROGRESS,
             action="sync",
             triggered_by="scheduled",
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
         db.add(sync_log)
         db.commit()
@@ -133,27 +137,28 @@ def sync_supabase_resource(self, resource_id: str):
             raise Exception("No Supabase API key found")
 
         client = SupabaseClient(decrypt_secret(api_key.key_encrypted))
-        result = client.sync_project(resource)
+        result = asyncio.run(client.sync_project(resource))
 
         # Update sync log
         sync_log.status = SyncStatus.SUCCESS
-        sync_log.completed_at = datetime.utcnow()
+        sync_log.completed_at = datetime.now(timezone.utc)
         sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
         sync_log.extra_metadata = result
 
         # Update resource
-        resource.last_sync_at = datetime.utcnow()
+        resource.last_sync_at = datetime.now(timezone.utc)
         resource.last_sync_status = SyncStatus.SUCCESS
 
         db.commit()
         return {"status": "success", "result": result}
 
     except Exception as exc:
-        sync_log.status = SyncStatus.FAILED
-        sync_log.completed_at = datetime.utcnow()
-        sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
-        sync_log.error_message = str(exc)
-        db.commit()
+        if sync_log is not None:
+            sync_log.status = SyncStatus.FAILED
+            sync_log.completed_at = datetime.now(timezone.utc)
+            sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
+            sync_log.error_message = str(exc)
+            db.commit()
         raise self.retry(exc=exc, countdown=2 ** self.request.retries)
     finally:
         db.close()
@@ -163,6 +168,7 @@ def sync_supabase_resource(self, resource_id: str):
 def sync_vercel_resource(self, resource_id: str):
     """Sync a Vercel deployment resource."""
     db = SessionLocal()
+    sync_log = None
     try:
         from app.domain.models import ExternalResource, APIKey
         resource = db.get(ExternalResource, resource_id)
@@ -176,7 +182,7 @@ def sync_vercel_resource(self, resource_id: str):
             status=SyncStatus.IN_PROGRESS,
             action="sync",
             triggered_by="scheduled",
-            started_at=datetime.utcnow()
+            started_at=datetime.now(timezone.utc)
         )
         db.add(sync_log)
         db.commit()
@@ -190,27 +196,28 @@ def sync_vercel_resource(self, resource_id: str):
             raise Exception("No Vercel API key found")
 
         client = VercelClient(decrypt_secret(api_key.key_encrypted))
-        result = client.sync_deployment(resource)
+        result = asyncio.run(client.sync_deployment(resource))
 
         # Update sync log
         sync_log.status = SyncStatus.SUCCESS
-        sync_log.completed_at = datetime.utcnow()
+        sync_log.completed_at = datetime.now(timezone.utc)
         sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
         sync_log.extra_metadata = result
         
         # Update resource
-        resource.last_sync_at = datetime.utcnow()
+        resource.last_sync_at = datetime.now(timezone.utc)
         resource.last_sync_status = SyncStatus.SUCCESS
 
         db.commit()
         return {"status": "success", "result": result}
 
     except Exception as exc:
-        sync_log.status = SyncStatus.FAILED
-        sync_log.completed_at = datetime.utcnow()
-        sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
-        sync_log.error_message = str(exc)
-        db.commit()
+        if sync_log is not None:
+            sync_log.status = SyncStatus.FAILED
+            sync_log.completed_at = datetime.now(timezone.utc)
+            sync_log.duration_seconds = int((sync_log.completed_at - sync_log.started_at).total_seconds())
+            sync_log.error_message = str(exc)
+            db.commit()
         raise self.retry(exc=exc, countdown=2 ** self.request.retries)
     finally:
         db.close()

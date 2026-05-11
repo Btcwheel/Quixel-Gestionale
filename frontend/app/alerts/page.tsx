@@ -7,17 +7,22 @@ import { Badge } from "@/components/ui/badge";
 import { getStatusColor, timeAgo } from "@/lib/utils";
 import { alertsApi } from "@/lib/api-endpoints";
 import { AlertTriangle, Bell, CheckCircle, Info } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 
-const sampleAlerts = [
-  { id: "1", severity: "critical", title: "AI Account credits critically low", message: "OpenAI Account #3 has less than 5% credits remaining. Top up immediately to avoid service disruption.", created_at: new Date().toISOString(), is_resolved: false },
-  { id: "2", severity: "critical", title: "Database connection timeout", message: "Supabase project 'saas-db' experienced repeated connection timeouts for the last 30 minutes.", created_at: new Date(Date.now() - 1800000).toISOString(), is_resolved: false },
-  { id: "3", severity: "warning", title: "GitHub sync failed", message: "Automatic sync failed for repository 'globalmedia/marketing-site'. Webhook may be misconfigured.", created_at: new Date(Date.now() - 3600000).toISOString(), is_resolved: false },
-  { id: "4", severity: "warning", title: "Rate limit approaching", message: "Anthropic #1 account is approaching rate limit threshold. Current usage at 85% of hourly limit.", created_at: new Date(Date.now() - 7200000).toISOString(), is_resolved: false },
-  { id: "5", severity: "info", title: "New deployment successful", message: "Project 'SaaS Platform' successfully deployed to production environment on Vercel.", created_at: new Date(Date.now() - 10800000).toISOString(), is_resolved: false },
-  { id: "6", severity: "info", title: "Project milestone reached", message: "Project 'Health Portal' has reached 50% completion based on task tracking.", created_at: new Date(Date.now() - 14400000).toISOString(), is_resolved: false },
-  { id: "7", severity: "warning", title: "Unused AI account detected", message: "Cohere #1 account has not been used in the last 7 days. Consider redistributing load.", created_at: new Date(Date.now() - 86400000).toISOString(), is_resolved: true },
-  { id: "8", severity: "info", title: "Client onboarding complete", message: "All projects for client 'TechStart Inc' have been successfully set up and are active.", created_at: new Date(Date.now() - 172800000).toISOString(), is_resolved: true },
+type AlertRow = {
+  id: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  created_at: string;
+  is_resolved: boolean;
+};
+
+const fallbackAlerts: AlertRow[] = [
+  { id: "1", severity: "critical", title: "AI Account credits critically low", message: "OpenAI Account #3 has less than 5% credits remaining.", created_at: new Date().toISOString(), is_resolved: false },
+  { id: "2", severity: "warning", title: "GitHub sync failed", message: "Automatic sync failed for repository 'globalmedia/marketing-site'.", created_at: new Date(Date.now() - 3600000).toISOString(), is_resolved: false },
+  { id: "3", severity: "info", title: "New deployment successful", message: "Project 'SaaS Platform' deployed to production on Vercel.", created_at: new Date(Date.now() - 10800000).toISOString(), is_resolved: false },
 ];
 
 function AlertIcon({ severity }: { severity: string }) {
@@ -27,28 +32,42 @@ function AlertIcon({ severity }: { severity: string }) {
 }
 
 export default function AlertsPage() {
-  const [filter, setFilter] = useState<"all" | "active" | "resolved">("active");
-  const [resolvedIds, setResolvedIds] = useState<Set<string>>(new Set(sampleAlerts.filter(a => a.is_resolved).map(a => a.id)));
+  const queryClient = useQueryClient();
+  const { data, isError, isLoading } = useQuery({
+    queryKey: ["alerts"],
+    queryFn: async () => {
+      const res = await alertsApi.list(undefined, 1, 100);
+      return res.data?.items as AlertRow[];
+    },
+    retry: false,
+  });
 
-  const handleResolve = async (id: string) => {
-    try {
-      await alertsApi.resolve(id);
-      setResolvedIds(prev => new Set(prev).add(id));
-    } catch (error) {
+  const resolveMutation = useMutation({
+    mutationFn: (id: string) => alertsApi.resolve(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["alerts"] });
+    },
+    onError: (error: any) => {
       console.error("Error resolving alert:", error);
       alert("Errore nel risolvere l'alert");
-    }
+    },
+  });
+
+  const alerts = isError && !data ? fallbackAlerts : data ?? [];
+  const [filter, setFilter] = useState<"all" | "active" | "resolved">("active");
+
+  const filteredAlerts = alerts.filter((alert) => {
+    if (filter === "active") return !alert.is_resolved;
+    if (filter === "resolved") return alert.is_resolved;
+    return true;
+  });
+
+  const handleResolve = async (id: string) => {
+    resolveMutation.mutate(id);
   };
 
-  const filteredAlerts = sampleAlerts.filter((alert) => {
-    const isResolved = resolvedIds.has(alert.id);
-    if (filter === "active") return !isResolved;
-    if (filter === "resolved") return isResolved;
-    return true;
-  }).map(alert => ({
-    ...alert,
-    is_resolved: resolvedIds.has(alert.id)
-  }));
+  const activeCount = alerts.filter((a) => !a.is_resolved).length;
+  const resolvedCount = alerts.filter((a) => a.is_resolved).length;
 
   return (
     <DashboardLayout>
@@ -64,14 +83,14 @@ export default function AlertsPage() {
               size="sm"
               onClick={() => setFilter("active")}
             >
-              Active ({sampleAlerts.filter((a) => !a.is_resolved).length})
+              Active ({activeCount})
             </Button>
             <Button
               variant={filter === "resolved" ? "default" : "outline"}
               size="sm"
               onClick={() => setFilter("resolved")}
             >
-              Resolved ({sampleAlerts.filter((a) => a.is_resolved).length})
+              Resolved ({resolvedCount})
             </Button>
             <Button
               variant={filter === "all" ? "default" : "outline"}
@@ -83,7 +102,6 @@ export default function AlertsPage() {
           </div>
         </div>
 
-        {/* Summary */}
         <div className="grid gap-4 md:grid-cols-3">
           <Card>
             <CardHeader className="pb-2">
@@ -91,7 +109,7 @@ export default function AlertsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {sampleAlerts.filter((a) => a.severity === "critical" && !a.is_resolved).length}
+                {alerts.filter((a) => a.severity === "critical" && !a.is_resolved).length}
               </div>
             </CardContent>
           </Card>
@@ -101,7 +119,7 @@ export default function AlertsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {sampleAlerts.filter((a) => a.severity === "warning" && !a.is_resolved).length}
+                {alerts.filter((a) => a.severity === "warning" && !a.is_resolved).length}
               </div>
             </CardContent>
           </Card>
@@ -111,14 +129,15 @@ export default function AlertsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {sampleAlerts.filter((a) => a.severity === "info" && !a.is_resolved).length}
+                {alerts.filter((a) => a.severity === "info" && !a.is_resolved).length}
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Alert List */}
         <div className="space-y-4">
+          {isLoading && !data && <p className="text-sm text-muted-foreground">Caricamento alert...</p>}
+          {isError && !data && <p className="text-sm text-muted-foreground">Uso dati di fallback locale.</p>}
           {filteredAlerts.map((alert) => (
             <Card key={alert.id} className={alert.is_resolved ? "opacity-60" : ""}>
               <CardContent className="p-6">
@@ -133,9 +152,7 @@ export default function AlertsPage() {
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="font-semibold">{alert.title}</h3>
-                      <Badge className={getStatusColor(alert.severity)}>
-                        {alert.severity}
-                      </Badge>
+                      <Badge className={getStatusColor(alert.severity)}>{alert.severity}</Badge>
                     </div>
                     <p className="text-sm text-muted-foreground">{alert.message}</p>
                     <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -152,7 +169,12 @@ export default function AlertsPage() {
                     </div>
                   </div>
                   {!alert.is_resolved && (
-                    <Button variant="outline" size="sm" onClick={() => handleResolve(alert.id)}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleResolve(alert.id)}
+                      disabled={resolveMutation.isPending}
+                    >
                       Resolve
                     </Button>
                   )}

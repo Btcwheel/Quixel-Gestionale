@@ -3,7 +3,7 @@
 from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from app.infrastructure.database.session import get_db
 from app.infrastructure.security.auth import decode_access_token
@@ -32,7 +32,9 @@ async def get_current_user(
     except ValueError:
         raise credentials_exception
     
-    user = db.query(AdminUser).filter(AdminUser.id == user_id).first()
+    user = db.exec(
+        select(AdminUser).where(AdminUser.id == user_id)
+    ).first()
     if user is None or not user.is_active:
         raise credentials_exception
     

@@ -45,3 +45,5 @@ Thumbs.db
 *.key
 *.pem
 secrets/
+nul
+frontend/nul

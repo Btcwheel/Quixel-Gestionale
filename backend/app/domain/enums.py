@@ -77,3 +77,12 @@ class AlertType(str, Enum):
     DEPLOY_FAILED = "deploy_failed"
     TOKEN_EXPIRY = "token_expiry"
     RATE_LIMIT = "rate_limit"
+
+
+class DiscussionProvider(str, Enum):
+    """AI providers for discussions."""
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    MISTRAL = "mistral"
+    CUSTOM = "custom"
