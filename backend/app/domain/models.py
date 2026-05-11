@@ -12,9 +12,9 @@ from sqlalchemy import func, Enum as SAEnum
 from pydantic import ConfigDict
 
 from app.domain.enums import (
-    AIProvider, ProjectStatus, ExternalResourceType, SyncStatus,
+    AIProvider, ProjectStatus, ExternalAccountProvider, SyncStatus,
     WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType,
-    DiscussionProvider
+    DiscussionProvider, DiscussionCategory, TOTPStatus, PlanStatus
 )
 
 
@@ -52,6 +52,8 @@ class Client(BaseModel, table=True):
     
     # Relationships
     projects: List["Project"] = Relationship(back_populates="client")
+    credential_vault: List["CredentialVault"] = Relationship(back_populates="project")
+    project_plans: List["ProjectPlan"] = Relationship(back_populates="project")
     
     model_config = ConfigDict(
         from_attributes=True,
@@ -80,11 +82,13 @@ class Project(BaseModel, table=True):
     
     # Relationships
     client: Optional[Client] = Relationship(back_populates="projects")
-    external_resources: List["ExternalResource"] = Relationship(back_populates="project")
+    external_accounts: List["ExternalAccount"] = Relationship(back_populates="project")
     ai_pool_assignments: List["ProjectAIPoolAssignment"] = Relationship(back_populates="project")
     alerts: List["Alert"] = Relationship(back_populates="project")
     documents: List["ProjectDocument"] = Relationship(back_populates="project")
     discussions: List["ProjectDiscussion"] = Relationship(back_populates="project")
+    credential_vault: List["CredentialVault"] = Relationship(back_populates="project")
+    project_plans: List["ProjectPlan"] = Relationship(back_populates="project")
     
     model_config = ConfigDict(
         from_attributes=True,
@@ -92,33 +96,33 @@ class Project(BaseModel, table=True):
     )
 
 
-class ExternalResource(BaseModel, table=True):
-    """External resource mapping (GitHub, Supabase, Vercel)."""
-    __tablename__ = "external_resources"
+class ExternalAccount(BaseModel, table=True):
+    """External account mapping (GitHub, Supabase, Vercel, etc.) for credential storage."""
+    __tablename__ = "external_accounts"
     
     project_id: str = Field(foreign_key="projects.id", index=True)
-    resource_type: ExternalResourceType = Field(sa_column=Column(String(50)))
-    external_id: str = Field(index=True, max_length=255)  # repo_id, project_ref, deployment_id
+    provider: ExternalAccountProvider = Field(sa_column=Column(String(50)))
+    external_id: str = Field(index=True, max_length=255)  # repo_id, project_ref, deployment_id, etc.
     name: str = Field(max_length=255)
     url: str = Field(max_length=500)
     owner: Optional[str] = Field(default=None, max_length=255)  # org/user
     branch: Optional[str] = Field(default=None, max_length=255)
     is_active: bool = Field(default=True)
-    last_sync_status: SyncStatus = Field(default=SyncStatus.PENDING, sa_column=Column(String(50)))
-    last_sync_at: Optional[datetime] = Field(default=None)
-    extra_metadata: Optional[dict] = Field(default=None, sa_column=Column("metadata", JSON))
+    username: Optional[str] = Field(default=None, max_length=255)  # username/email for the account
+    notes: Optional[str] = Field(default=None, sa_column=Column(Text))
     
     # Provider-specific fields
     github_full_name: Optional[str] = Field(default=None, max_length=255)  # owner/repo
     supabase_region: Optional[str] = Field(default=None, max_length=50)
     vercel_target: Optional[str] = Field(default=None, max_length=50)  # production/preview/development
-
+    aws_region: Optional[str] = Field(default=None, max_length=50)  # e.g., us-east-1
+    
     # Relationships
-    project: Optional[Project] = Relationship(back_populates="external_resources")
-    sync_logs: List["SyncLog"] = Relationship(back_populates="resource")
-
+    project: Optional[Project] = Relationship(back_populates="external_accounts")
+    credential_vault: List["CredentialVault"] = Relationship(back_populates="account")
+    
     __table_args__ = (
-        UniqueConstraint("external_id", "resource_type", name="uq_external_id_type"),
+        UniqueConstraint("external_id", "provider", name="uq_external_id_provider"),
     )
 
 
@@ -126,7 +130,7 @@ class SyncLog(BaseModel, table=True):
     """Log of sync operations for auditing."""
     __tablename__ = "sync_logs"
     
-    resource_id: str = Field(foreign_key="external_resources.id", index=True)
+    resource_id: str = Field(foreign_key="external_accounts.id", index=True)
     provider: WebhookProvider = Field(sa_column=Column(String(50)))
     status: SyncStatus = Field(sa_column=Column(String(50)))
     action: str = Field(max_length=100)  # e.g., "push", "deploy", "backup"
@@ -138,7 +142,7 @@ class SyncLog(BaseModel, table=True):
     extra_metadata: Optional[dict] = Field(default=None, sa_column=Column("metadata", JSON))
     
     # Relationships
-    resource: Optional[ExternalResource] = Relationship(back_populates="sync_logs")
+    resource: Optional[ExternalAccount] = Relationship(back_populates="sync_logs")
 
 
 # ============================================
@@ -295,9 +299,14 @@ class ProjectDiscussion(BaseModel, table=True):
     # Tags
     tags: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
     
+    # Categorization and tracking
+    category: Optional[DiscussionCategory] = Field(default=None, sa_column=Column(String(50)))
+    applied_to_plan: bool = Field(default=False)
+    priority: int = Field(default=0)
+    
     # Relationships
     project: Optional[Project] = Relationship(back_populates="discussions")
-
+    
     model_config = ConfigDict(
         from_attributes=True,
         json_schema_extra={
@@ -306,6 +315,98 @@ class ProjectDiscussion(BaseModel, table=True):
                 "provider": "anthropic",
                 "model_used": "claude-3-opus",
                 "insights": "- Use JWT with refresh tokens\\n- Implement rate limiting",
+                "category": "insight",
+                "applied_to_plan": True,
+                "priority": 1
+            }
+        },
+    )
+
+
+# ============================================
+# Credential Vault Models
+# ============================================
+
+class CredentialVault(BaseModel, table=True):
+    """Encrypted credential storage for external accounts."""
+    __tablename__ = "credential_vault"
+    
+    project_id: str = Field(foreign_key="projects.id", index=True)
+    account_id: str = Field(foreign_key="external_accounts.id", index=True)
+    provider: ExternalAccountProvider = Field(sa_column=Column(String(50)))
+    account_name: str = Field(max_length=255)  # descriptive name for the credential
+    credential_type: str = Field(max_length=50)  # "oauth_token", "api_key", "password", "service_role_key"
+    encrypted_credentials: str = Field(sa_column=Column(Text))  # Fernet-encrypted JSON
+    expires_at: Optional[datetime] = Field(default=None)
+    last_accessed_at: Optional[datetime] = Field(default=None)
+    access_count: int = Field(default=0)
+    notes: Optional[str] = Field(default=None, sa_column=Column(Text))
+    
+    # Relationships
+    project: Optional[Project] = Relationship(back_populates="credential_vault")
+    account: Optional[ExternalAccount] = Relationship(back_populates="credential_vault")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "account_name": "GitHub Production Token",
+                "credential_type": "oauth_token",
+                "expires_at": "2026-12-31T00:00:00Z"
+            }
+        },
+    )
+
+
+class TOTPSecret(BaseModel, table=True):
+    """TOTP 2FA secret for admin users."""
+    __tablename__ = "totp_secrets"
+    
+    admin_user_id: str = Field(foreign_key="admin_users.id", unique=True, index=True)
+    secret: str = Field(sa_column=Column(Text))  # encrypted TOTP secret
+    status: TOTPStatus = Field(default=TOTPStatus.DISABLED, sa_column=Column(String(50)))
+    verified_at: Optional[datetime] = Field(default=None)
+    backup_codes: Optional[str] = Field(default=None, sa_column=Column(JSON))  # encrypted backup codes
+    
+    # Relationships
+    admin_user: Optional["AdminUser"] = Relationship(back_populates="totp_secret")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "status": "active",
+                "verified_at": "2026-05-11T10:00:00Z"
+            }
+        },
+    )
+
+
+class ProjectPlan(BaseModel, table=True):
+    """Aggregated project plan generated from discussions and chats."""
+    __tablename__ = "project_plans"
+    
+    project_id: str = Field(foreign_key="projects.id", index=True)
+    version: str = Field(default="1.0.0", max_length=20)
+    status: PlanStatus = Field(default=PlanStatus.DRAFT, sa_column=Column(String(50)))
+    title: str = Field(max_length=255)
+    content: str = Field(sa_column=Column(Text))  # markdown formatted plan
+    source_discussion_ids: Optional[str] = Field(default=None, sa_column=Column(JSON))  # list of discussion IDs
+    source_chat_ids: Optional[str] = Field(default=None, sa_column=Column(JSON))  # list of chat log IDs
+    generated_by: Optional[str] = Field(default=None, max_length=50)  # "system" or username
+    approved_at: Optional[datetime] = Field(default=None)
+    
+    # Relationships
+    project: Optional[Project] = Relationship(back_populates="project_plans")
+    
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_schema_extra={
+            "example": {
+                "title": "Q3 Feature Development Plan",
+                "version": "1.2.0",
+                "status": "approved",
+                "generated_by": "system"
             }
         },
     )

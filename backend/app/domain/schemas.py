@@ -5,9 +5,9 @@ from typing import Optional, List, Generic, TypeVar
 from pydantic import BaseModel, Field, EmailStr, ConfigDict
 
 from app.domain.enums import (
-    AIProvider, ProjectStatus, ExternalResourceType, SyncStatus,
+    AIProvider, ProjectStatus, ExternalAccountProvider, SyncStatus,
     WebhookProvider, ChatRole, RatingScore, AlertSeverity, AlertType,
-    DiscussionProvider
+    DiscussionProvider, DiscussionCategory, TOTPStatus, PlanStatus
 )
 
 # Generic type for pagination
@@ -150,55 +150,59 @@ class ProjectResponse(BaseModel):
 
 
 # ============================================
-# External Resource Schemas
+# External Account Schemas
 # ============================================
 
-class ExternalResourceCreate(BaseModel):
-    """Schema for creating an external resource."""
+class ExternalAccountCreate(BaseModel):
+    """Schema for creating an external account."""
     model_config = ConfigDict(populate_by_name=True)
     project_id: str
-    resource_type: ExternalResourceType
+    provider: ExternalAccountProvider
     external_id: str = Field(..., max_length=255)
     name: str = Field(..., max_length=255)
     url: str = Field(..., max_length=500)
     owner: Optional[str] = None
     branch: Optional[str] = None
+    username: Optional[str] = None
     metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     github_full_name: Optional[str] = None
     supabase_region: Optional[str] = None
     vercel_target: Optional[str] = None
+    aws_region: Optional[str] = None
 
 
-class ExternalResourceUpdate(BaseModel):
-    """Schema for updating an external resource."""
+class ExternalAccountUpdate(BaseModel):
+    """Schema for updating an external account."""
     model_config = ConfigDict(populate_by_name=True)
     name: Optional[str] = None
     branch: Optional[str] = None
+    username: Optional[str] = None
     is_active: Optional[bool] = None
     metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     github_full_name: Optional[str] = None
     supabase_region: Optional[str] = None
     vercel_target: Optional[str] = None
+    aws_region: Optional[str] = None
 
 
-class ExternalResourceResponse(BaseModel):
-    """External resource response schema."""
+class ExternalAccountResponse(BaseModel):
+    """External account response schema."""
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     
     id: str
     project_id: str
-    resource_type: ExternalResourceType
+    provider: ExternalAccountProvider
     external_id: str
     name: str
     url: str
     owner: Optional[str]
     branch: Optional[str]
+    username: Optional[str]
     is_active: bool
-    last_sync_status: SyncStatus
-    last_sync_at: Optional[datetime]
     github_full_name: Optional[str]
     supabase_region: Optional[str]
     vercel_target: Optional[str]
+    aws_region: Optional[str]
     metadata: Optional[dict] = Field(default=None, alias="extra_metadata")
     created_at: datetime
     updated_at: datetime
@@ -632,3 +636,140 @@ class DiscussionExtractResponse(BaseModel):
     decisions: str
     action_items: str
     detected_provider: Optional[str] = None
+    category: Optional[DiscussionCategory] = None
+
+
+# ============================================
+# Credential Vault Schemas
+# ============================================
+
+class CredentialVaultCreate(BaseModel):
+    """Schema for creating a credential vault entry."""
+    model_config = ConfigDict(populate_by_name=True)
+    project_id: str
+    provider: ExternalAccountProvider
+    account_name: str = Field(..., max_length=255)
+    credential_type: str = Field(..., max_length=50)  # "oauth_token", "api_key", "password", "service_role_key"
+    credentials: dict  # Will be encrypted before storage
+    expires_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class CredentialVaultUpdate(BaseModel):
+    """Schema for updating a credential vault entry."""
+    model_config = ConfigDict(populate_by_name=True)
+    account_name: Optional[str] = None
+    credential_type: Optional[str] = None
+    credentials: Optional[dict] = None
+    expires_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+class CredentialVaultResponse(BaseModel):
+    """Credential vault response schema (NO credentials)."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    
+    id: str
+    project_id: str
+    provider: ExternalAccountProvider
+    account_name: str
+    credential_type: str
+    expires_at: Optional[datetime] = None
+    last_accessed_at: Optional[datetime] = None
+    access_count: int
+    notes: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CredentialVaultUnlockResponse(BaseModel):
+    """Credential vault unlock response (credentials decrypted)."""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    project_id: str
+    provider: ExternalAccountProvider
+    account_name: str
+    credential_type: str
+    credentials: dict  # Decrypted credentials
+    expires_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+
+# ============================================
+# TOTP 2FA Schemas
+# ============================================
+
+class TOTPSetupResponse(BaseModel):
+    """TOTP setup response with secret and QR code URI."""
+    secret: str  # plain text secret for user to save
+    qr_uri: str  # URI for QR code generation
+
+
+class TOTPVerifyRequest(BaseModel):
+    """TOTP verification request."""
+    code: str = Field(..., min_length=6, max_length=6, pattern=r'^\d{6}$')
+
+
+class TOTPChallengeRequest(BaseModel):
+    """TOTP challenge request for sensitive operations."""
+    code: str = Field(..., min_length=6, max_length=6, pattern=r'^\d{6}$')
+
+
+class TOTPChallengeResponse(BaseModel):
+    """TOTP challenge response."""
+    challenge_token: str  # token valid for limited time (e.g., 5 minutes)
+
+
+# ============================================
+# Project Plan Schemas
+# ============================================
+
+class ProjectPlanGenerateRequest(BaseModel):
+    """Request to generate a project plan."""
+    discussion_ids: Optional[List[str]] = None
+    chat_ids: Optional[List[str]] = None
+    title: Optional[str] = None
+
+
+class ProjectPlanUpdateRequest(BaseModel):
+    """Request to update a project plan."""
+    title: Optional[str] = None
+    content: Optional[str] = None
+    status: Optional[PlanStatus] = None
+
+
+class ProjectPlanResponse(BaseModel):
+    """Project plan response schema."""
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    
+    id: str
+    project_id: str
+    version: str
+    status: PlanStatus
+    title: str
+    content: str
+    source_discussion_ids: Optional[List[str]] = None
+    source_chat_ids: Optional[List[str]] = None
+    generated_by: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+    approved_at: Optional[datetime] = None
+
+
+# ============================================
+# Context Recovery Schemas
+# ============================================
+
+class ProjectContextResponse(BaseModel):
+    """Project context response for recovery."""
+    project_id: str
+    project_name: str
+    current_plan: Optional[ProjectPlanResponse] = None
+    recent_discussions: List[ProjectDiscussionResponse] = []
+    recent_chats: List[ChatLogResponse] = []
+    key_decisions: List[str] = []
+    action_items: List[str] = []
+    external_accounts: List[ExternalAccountResponse] = []
+    ai_accounts_used: List[AIAccountResponse] = []
+    obsidian_notes: List[str] = []  # filenames of synced notes

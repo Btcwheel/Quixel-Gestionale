@@ -5,7 +5,7 @@ from sqlmodel import Session
 from datetime import datetime, timezone
 
 from app.infrastructure.database.session import get_db
-from app.domain.models import WebhookEvent, ExternalResource, SyncLog
+from app.domain.models import WebhookEvent, ExternalAccount, SyncLog
 from app.domain.enums import WebhookProvider, SyncStatus
 from app.infrastructure.external.github import GitHubClient
 

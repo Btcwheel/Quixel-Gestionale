@@ -7,7 +7,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import settings
-from app.domain.models import ExternalResource
+from app.domain.models import ExternalAccount
 
 
 class VercelClient:
@@ -115,7 +115,7 @@ class VercelClient:
             "meta": deployment.get("meta"),
         }
     
-    async def sync_deployment(self, resource: ExternalResource) -> Dict[str, Any]:
+    async def sync_deployment(self, resource: ExternalAccount) -> Dict[str, Any]:
         """Sync deployment data and return status."""
         deployment_id = resource.external_id
         

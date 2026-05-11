@@ -7,7 +7,7 @@ import httpx
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 from app.core.config import settings
-from app.domain.models import ExternalResource
+from app.domain.models import ExternalAccount
 
 
 class SupabaseClient:
@@ -79,7 +79,7 @@ class SupabaseClient:
             response.raise_for_status()
             return response.json()
     
-    async def sync_project(self, resource: ExternalResource) -> Dict[str, Any]:
+    async def sync_project(self, resource: ExternalAccount) -> Dict[str, Any]:
         """Sync project data and return status."""
         project_ref = resource.external_id
         region = resource.supabase_region or "unknown"

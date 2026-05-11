@@ -7,8 +7,8 @@ from sqlmodel import Session, select, cast, String
 
 from app.core.config import settings
 from app.infrastructure.database.session import SessionLocal
-from app.domain.models import ExternalResource, SyncLog, AIAccount, Alert
-from app.domain.enums import SyncStatus, WebhookProvider, AlertType, AlertSeverity
+from app.domain.models import ExternalAccount, SyncLog, AIAccount, Alert
+from app.domain.enums import SyncStatus, WebhookProvider, AlertType, AlertSeverity, ExternalAccountProvider
 from app.infrastructure.external.github import GitHubClient
 from app.infrastructure.external.supabase import SupabaseClient
 from app.infrastructure.external.vercel import VercelClient
@@ -48,8 +48,8 @@ def sync_github_resource(self, resource_id: str):
     db = SessionLocal()
     sync_log = None
     try:
-        from app.domain.models import ExternalResource
-        resource = db.get(ExternalResource, resource_id)
+from app.domain.models import ExternalAccount
+resource = db.get(ExternalAccount, resource_id)
         if not resource:
             return {"status": "error", "message": "Resource not found"}
         
@@ -111,8 +111,8 @@ def sync_supabase_resource(self, resource_id: str):
     db = SessionLocal()
     sync_log = None
     try:
-        from app.domain.models import ExternalResource, APIKey
-        resource = db.get(ExternalResource, resource_id)
+        from app.domain.models import ExternalAccount, APIKey
+        resource = db.get(ExternalAccount, resource_id)
         if not resource:
             return {"status": "error", "message": "Resource not found"}
 
@@ -170,8 +170,8 @@ def sync_vercel_resource(self, resource_id: str):
     db = SessionLocal()
     sync_log = None
     try:
-        from app.domain.models import ExternalResource, APIKey
-        resource = db.get(ExternalResource, resource_id)
+        from app.domain.models import ExternalAccount, APIKey
+        resource = db.get(ExternalAccount, resource_id)
         if not resource:
             return {"status": "error", "message": "Resource not found"}
 
@@ -296,9 +296,9 @@ def sync_all_github_resources():
     db = SessionLocal()
     try:
         resources = db.exec(
-            select(ExternalResource).where(
-                ExternalResource.resource_type == "github_repo",
-                ExternalResource.is_active == True
+            select(ExternalAccount).where(
+                ExternalAccount.provider == ExternalAccountProvider.GITHUB,
+                ExternalAccount.is_active == True
             )
         ).all()
         
@@ -316,9 +316,9 @@ def sync_all_supabase_resources():
     db = SessionLocal()
     try:
         resources = db.exec(
-            select(ExternalResource).where(
-                ExternalResource.resource_type == "supabase_project",
-                ExternalResource.is_active == True
+            select(ExternalAccount).where(
+                ExternalAccount.provider == ExternalAccountProvider.VERCEL,
+                ExternalAccount.is_active == True
             )
         ).all()
         
@@ -336,9 +336,9 @@ def sync_all_vercel_resources():
     db = SessionLocal()
     try:
         resources = db.exec(
-            select(ExternalResource).where(
-                ExternalResource.resource_type == "vercel_deployment",
-                ExternalResource.is_active == True
+            select(ExternalAccount).where(
+                ExternalAccount.provider == ExternalAccountProvider.GITHUB,
+                ExternalAccount.is_active == True
             )
         ).all()
         

@@ -86,3 +86,39 @@ class DiscussionProvider(str, Enum):
     GOOGLE = "google"
     MISTRAL = "mistral"
     CUSTOM = "custom"
+
+
+class ExternalAccountProvider(str, Enum):
+    """Supported external service providers for project accounts."""
+    GITHUB = "github"
+    SUPABASE = "supabase"
+    VERCEL = "vercel"
+    DOCKER_HUB = "docker_hub"
+    CLOUDFLARE = "cloudflare"
+    AWS = "aws"
+    CUSTOM = "custom"
+
+
+class TOTPStatus(str, Enum):
+    """TOTP 2FA setup status."""
+    DISABLED = "disabled"
+    PENDING_VERIFICATION = "pending_verification"
+    ACTIVE = "active"
+
+
+class PlanStatus(str, Enum):
+    """Project plan lifecycle status."""
+    DRAFT = "draft"
+    GENERATED = "generated"
+    APPROVED = "approved"
+    ARCHIVED = "archived"
+
+
+class DiscussionCategory(str, Enum):
+    """Category for discussion extracted items."""
+    INSIGHT = "insight"
+    DECISION = "decision"
+    ACTION_ITEM = "action_item"
+    QUESTION = "question"
+    CODE = "code"
+    ARCHITECTURE = "architecture"

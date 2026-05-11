@@ -8,7 +8,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 from app.core.config import settings
 from app.domain.enums import SyncStatus, WebhookProvider
-from app.domain.models import ExternalResource, SyncLog
+from app.domain.models import ExternalAccount, SyncLog
 
 
 class GitHubClient:
@@ -105,7 +105,7 @@ class GitHubClient:
             response.raise_for_status()
             return response.json()
     
-    async def sync_repository(self, resource: ExternalResource) -> Dict[str, Any]:
+    async def sync_repository(self, resource: ExternalAccount) -> Dict[str, Any]:
         """Sync repository data and return stats."""
         if not resource.github_full_name:
             raise ValueError("github_full_name is required (format: owner/repo)")

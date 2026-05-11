@@ -7,7 +7,7 @@ from app.application.services.base import BaseService
 from app.domain.models import (
     Client,
     Project,
-    ExternalResource,
+    ExternalAccount,
     SyncLog,
     Alert,
     ProjectDocument,

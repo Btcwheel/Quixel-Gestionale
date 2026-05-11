@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select, func
 
 from app.application.services.base import BaseService
-from app.domain.models import Project, ExternalResource, AIAccount, ChatLog
+from app.domain.models import Project, ExternalAccount, AIAccount, ChatLog
 from app.domain.schemas import ProjectCreate, ProjectUpdate
 
 
@@ -25,11 +25,11 @@ class ProjectService(BaseService[Project, ProjectCreate, ProjectUpdate]):
         if not project:
             return None
         
-        # Get external resource count
+        # Get external account count
         resource_count = self.db.exec(
-            select(func.count(ExternalResource.id)).where(
-                ExternalResource.project_id == id,
-                ExternalResource.is_active == True
+            select(func.count(ExternalAccount.id)).where(
+                ExternalAccount.project_id == id,
+                ExternalAccount.is_active == True
             )
         ).one()
         
