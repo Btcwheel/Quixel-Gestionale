@@ -1,4 +1,4 @@
-import { Box, Settings, Users, LayoutDashboard, CreditCard, KeyRound } from "lucide-react";
+import { Box, Settings, Users, LayoutDashboard, CreditCard, KeyRound, Lightbulb } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/server";
@@ -45,6 +45,13 @@ export default async function DashboardLayout({
             >
               <Box className="h-4 w-4" />
               Progetti
+            </Link>
+            <Link
+              href="/dashboard/ideas"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary hover:bg-muted"
+            >
+              <Lightbulb className="h-4 w-4" />
+              Idee
             </Link>
             <Link
               href="/dashboard/vault"
