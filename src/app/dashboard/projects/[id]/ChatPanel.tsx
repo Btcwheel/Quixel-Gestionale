@@ -1,14 +1,14 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { DefaultChatTransport } from 'ai';
+import { TextStreamChatTransport } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Send, Bot, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export function ChatPanel({ projectId }: { projectId: string }) {
   const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
+    transport: new TextStreamChatTransport({
       api: '/api/chat',
       body: { projectId },
     }),

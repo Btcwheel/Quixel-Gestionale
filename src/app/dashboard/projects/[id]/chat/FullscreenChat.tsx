@@ -1,14 +1,14 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { TextStreamChatTransport } from 'ai'
 import { Button } from '@/components/ui/button'
 import { Send, Bot, User, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 export function FullscreenChat({ projectId, disabled }: { projectId: string; disabled: boolean }) {
   const { messages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
+    transport: new TextStreamChatTransport({
       api: '/api/chat',
       body: { projectId },
     }),
