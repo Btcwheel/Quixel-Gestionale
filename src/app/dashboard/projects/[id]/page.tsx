@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, GitBranch, Globe, BrainCircuit, Activity, FolderGit2, Euro, Users, AlertTriangle } from "lucide-react"
+import { ArrowLeft, GitBranch, Globe, BrainCircuit, Activity, FolderGit2, Euro, Users, AlertTriangle, MessageSquare } from "lucide-react"
 import Link from "next/link"
-import { ChatPanel } from "./ChatPanel"
 import { AIPoolPanel } from "./AIPoolPanel"
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -171,13 +170,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </div>
 
-          <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
-            <div className="px-5 py-3 border-b border-border/50 flex items-center gap-2">
-              <BrainCircuit className="h-4 w-4 text-purple-500" />
-              <span className="font-semibold text-sm">{"Chat AI — " + primaryModel}</span>
+          <Link href={`/dashboard/projects/${project.id}/chat`}
+            className="flex items-center gap-3 p-5 rounded-xl border border-border/50 bg-card shadow-sm hover:border-primary/30 hover:bg-primary/5 transition-all group">
+            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 flex-shrink-0">
+              <MessageSquare className="h-5 w-5" />
             </div>
-            <ChatPanel projectId={project.id} />
-          </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm group-hover:text-primary transition-colors">Apri Chat AI</p>
+              <p className="text-xs text-muted-foreground truncate">{primaryModel}</p>
+            </div>
+            <ArrowLeft className="h-4 w-4 text-muted-foreground rotate-180 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </div>
       </div>
     </div>

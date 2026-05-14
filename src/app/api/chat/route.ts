@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { streamText, convertToModelMessages } from 'ai';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/crypto';
 import { generateEmbedding } from '@/lib/embeddings';
@@ -59,10 +59,12 @@ export async function POST(req: Request) {
 
 Rispondi sempre in italiano. Sii diretto, concreto e professionale. Quando usi gli insight dell'archivio personale, integrali naturalmente nel ragionamento senza citarli esplicitamente.`;
 
+    const modelMessages = await convertToModelMessages(messages);
+
     const result = streamText({
       model: openrouter(modelName),
       system: systemPrompt,
-      messages,
+      messages: modelMessages,
     });
 
     return result.toTextStreamResponse();
@@ -77,9 +79,10 @@ async function getRelevantIdeas(supabase: any, messages: any[], projectId: strin
     const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) return [];
 
-    const queryText = lastUserMessage.parts
-      ? lastUserMessage.parts.map((p: any) => p.text ?? '').join(' ')
-      : lastUserMessage.content ?? '';
+    const queryText = (lastUserMessage.parts ?? [])
+      .filter((p: any) => p.type === 'text')
+      .map((p: any) => p.text ?? '')
+      .join(' ') || lastUserMessage.content || '';
 
     if (!queryText.trim()) return [];
 
