@@ -8,27 +8,82 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: project, error } = await supabase
-    .from('projects')
-    .select(`
-      id, name, description, progress, is_stuck, next_action,
-      project_ai_pool_assignments(
-        is_primary,
-        ai_account:ai_accounts(account_name, model_name)
-      )
-    `)
-    .eq('id', id)
-    .single()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) notFound()
+
+  const [{ data: project, error }, { data: allAIAccounts }, { data: ideas }] = await Promise.all([
+    supabase
+      .from('projects')
+      .select(`
+        id, name, description, progress, is_stuck, next_action, status,
+        client:clients(name),
+        project_ai_pool_assignments(
+          is_primary,
+          ai_account:ai_accounts(id, account_name, model_name)
+        )
+      `)
+      .eq('id', id)
+      .single(),
+    supabase.from('ai_accounts').select('id, account_name, model_name').eq('is_active', true),
+    supabase.from('ideas').select('id, title, status').eq('project_id', id).order('created_at', { ascending: false }).limit(5),
+  ])
 
   if (error || !project) notFound()
 
   const assignments = (project.project_ai_pool_assignments ?? []) as any[]
   const primary = assignments.find(a => a.is_primary) ?? assignments[0]
-  const modelName = primary?.ai_account?.model_name ?? null
+  const primaryAccount = primary?.ai_account ?? null
+
+  // All active AI accounts for model switcher
+  const aiAccounts = (allAIAccounts ?? []) as { id: string; account_name: string; model_name: string }[]
+
+  // Get or create chat session
+  let { data: session } = await supabase
+    .from('chat_sessions')
+    .select('id')
+    .eq('project_id', id)
+    .eq('user_id', user.id)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .single()
+
+  if (!session) {
+    const { data: newSession } = await supabase
+      .from('chat_sessions')
+      .insert({ project_id: id, user_id: user.id, title: project.name })
+      .select('id')
+      .single()
+    session = newSession
+  }
+
+  // Load existing messages
+  const { data: savedMessages } = session
+    ? await supabase
+        .from('chat_messages')
+        .select('id, role, parts, created_at')
+        .eq('session_id', session.id)
+        .order('created_at', { ascending: true })
+    : { data: [] }
+
+  const initialMessages = (savedMessages ?? []).map((m: any) => ({
+    id: m.id,
+    role: m.role as 'user' | 'assistant',
+    parts: m.parts,
+  }))
+
+  const projectSummary = {
+    name: project.name,
+    description: project.description ?? null,
+    status: project.status ?? null,
+    progress: project.progress ?? 0,
+    is_stuck: project.is_stuck ?? false,
+    next_action: project.next_action ?? null,
+    client: (project.client as any)?.name ?? null,
+    ideas: (ideas ?? []) as { id: string; title: string; status: string }[],
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background flex-shrink-0">
         <Link href={`/dashboard/projects/${id}`} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
@@ -36,7 +91,7 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-sm truncate">{project.name}</p>
           <p className="text-xs text-muted-foreground">
-            {modelName ?? 'Nessun AI collegato — vai al progetto per configurarlo'}
+            {primaryAccount?.model_name ?? 'Nessun AI collegato — vai al progetto per configurarlo'}
           </p>
         </div>
         {project.next_action && (
@@ -53,7 +108,15 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      <FullscreenChat projectId={id} disabled={!modelName} />
+      <FullscreenChat
+        projectId={id}
+        sessionId={session?.id ?? null}
+        disabled={aiAccounts.length === 0}
+        initialMessages={initialMessages}
+        aiAccounts={aiAccounts}
+        defaultAccountId={primaryAccount?.id ?? null}
+        projectSummary={projectSummary}
+      />
     </div>
   )
 }
