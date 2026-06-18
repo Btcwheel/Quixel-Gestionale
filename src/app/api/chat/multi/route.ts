@@ -32,11 +32,16 @@ export async function POST(req: Request) {
       .eq('id', accountId)
       .single();
 
-    if (!aiAccount?.api_key_encrypted) {
-      return Response.json({ error: 'Account AI non trovato' }, { status: 400 });
+    let apiKey = '';
+    if (aiAccount?.api_key_encrypted) {
+      apiKey = await decrypt(aiAccount.api_key_encrypted);
+    } else if (process.env.OPENAI_API_KEY) {
+      apiKey = process.env.OPENAI_API_KEY;
+    } else if (process.env.OPENCODE_API_KEY) {
+      apiKey = process.env.OPENCODE_API_KEY;
+    } else {
+      return Response.json({ error: 'Nessun account AI trovato o configurato' }, { status: 400 });
     }
-
-    const apiKey = await decrypt(aiAccount.api_key_encrypted);
     const openrouter = createOpenAI({
       apiKey,
       baseURL: 'https://openrouter.ai/api/v1',

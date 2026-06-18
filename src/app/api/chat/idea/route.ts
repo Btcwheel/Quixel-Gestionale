@@ -37,15 +37,21 @@ export async function POST(req: Request) {
       aiAccount = data;
     }
 
-    if (!aiAccount?.api_key_encrypted) {
+    let apiKey = '';
+    if (aiAccount?.api_key_encrypted) {
+      apiKey = await decrypt(aiAccount.api_key_encrypted);
+    } else if (process.env.OPENAI_API_KEY) {
+      apiKey = process.env.OPENAI_API_KEY;
+    } else if (process.env.OPENCODE_API_KEY) {
+      apiKey = process.env.OPENCODE_API_KEY;
+    } else {
       return new Response(
-        'Nessun account AI configurato. Vai in Impostazioni e aggiungi un account OpenRouter.',
+        'Nessun account AI configurato. Vai in Impostazioni o configura OPENAI_API_KEY/OPENCODE_API_KEY.',
         { status: 400 }
       );
     }
 
-    const apiKey = await decrypt(aiAccount.api_key_encrypted);
-    let modelName = modelOverride ?? aiAccount.model_name ?? 'anthropic/claude-sonnet-4-6';
+    let modelName = modelOverride ?? aiAccount?.model_name ?? 'anthropic/claude-sonnet-4-6';
     let routingPrefix = '';
 
     const isGoProvider = apiKey.startsWith('opencode-') || modelName.startsWith('opencode-go/') || (aiAccount.model_name && aiAccount.model_name.startsWith('opencode-go/'));
