@@ -33,9 +33,9 @@ export function IdeaCapture({ projects }: { projects: Project[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card shadow-sm p-5 space-y-4">
+    <div className="rounded-xl border border-border/50 bg-card shadow-sm p-5 space-y-4 border-t-[3px] border-t-amber-500">
       <div className="flex items-center gap-2 mb-1">
-        <Sparkles className="h-4 w-4 text-yellow-400" />
+        <Sparkles className="h-4 w-4 text-amber-400" />
         <span className="text-sm font-semibold">Cattura idea</span>
         <span className="text-xs text-muted-foreground ml-auto">viene vettorizzata automaticamente</span>
       </div>

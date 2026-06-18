@@ -21,7 +21,10 @@ CREATE INDEX IF NOT EXISTS ideas_embedding_idx ON ideas USING ivfflat (embedding
 
 -- RLS
 ALTER TABLE ideas ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all for authenticated" ON ideas FOR ALL USING (auth.role() = 'authenticated');
+DO $$ BEGIN
+  CREATE POLICY "Allow all for authenticated" ON ideas FOR ALL USING (auth.role() = 'authenticated');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Funzione similarity search
 CREATE OR REPLACE FUNCTION search_ideas(

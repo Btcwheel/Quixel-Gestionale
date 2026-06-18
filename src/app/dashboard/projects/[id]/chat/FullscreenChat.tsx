@@ -1,7 +1,7 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
+import { DefaultChatTransport, type UIMessage } from 'ai'
 import { Button } from '@/components/ui/button'
 import { Send, Bot, User, Loader2, ChevronDown, GitCompare, AlertTriangle, Lightbulb, CircleDot } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -9,6 +9,9 @@ import { saveMessage } from '@/app/actions/chat'
 import { MultiModelPanel } from './MultiModelPanel'
 
 const OPENROUTER_MODELS = [
+  { group: 'AI Orchestration', models: [
+    { label: '🧠 Orchestrator (Auto-routing)', value: 'orchestrated' }
+  ]},
   { group: 'Anthropic', models: [
     { label: 'Claude Opus 4.7', value: 'anthropic/claude-opus-4-7' },
     { label: 'Claude Sonnet 4.6', value: 'anthropic/claude-sonnet-4-6' },
@@ -47,10 +50,12 @@ const OPENROUTER_MODELS = [
   ]},
 ]
 
+type Part = { type: string; text?: string }
+
 type InitialMessage = {
   id: string
   role: 'user' | 'assistant'
-  parts: any[]
+  parts: unknown[]
 }
 
 type AIAccount = {
@@ -97,41 +102,48 @@ export function FullscreenChat({
   const [selectedId, setSelectedId] = useState<string | null>(
     defaultAccountId ?? aiAccounts[0]?.id ?? null
   )
-  const selectedAccount = aiAccounts.find(a => a.id === selectedId) ?? aiAccounts[0] ?? null
-  const defaultModel = selectedAccount?.model_name ?? OPENROUTER_MODELS[0].models[0].value
-  const [selectedModel, setSelectedModel] = useState<string>(defaultModel)
-
-  // Use refs so the transport always reads the latest values without reinitializing useChat
-  const selectedIdRef = useRef(selectedId)
-  const selectedModelRef = useRef(selectedModel)
-  useEffect(() => { selectedIdRef.current = selectedId }, [selectedId])
-  useEffect(() => { selectedModelRef.current = selectedModel }, [selectedModel])
+  const [selectedModel, setSelectedModel] = useState<string>('orchestrated')
 
   const [showMultiModel, setShowMultiModel] = useState(false)
 
   const { messages, setMessages, sendMessage, status, error } = useChat({
     transport: new DefaultChatTransport({
       api: '/api/chat',
-      body: () => ({ projectId, accountId: selectedIdRef.current, modelOverride: selectedModelRef.current }),
+      body: () => ({ projectId, accountId: selectedId, modelOverride: selectedModel }),
     }),
-    initialMessages,
+    messages: initialMessages as UIMessage[],
   })
 
   const [text, setText] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const autoScrollRef = useRef(true)
+  const chatContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const savedIds = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)))
   const isLoading = status === 'streaming' || status === 'submitted'
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const container = chatContainerRef.current
+    if (!container) return
+    const onScroll = () => {
+      const threshold = 100
+      autoScrollRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+    }
+    container.addEventListener('scroll', onScroll)
+    return () => container.removeEventListener('scroll', onScroll)
+  }, [])
+
+  useEffect(() => {
+    if (autoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages])
 
   useEffect(() => {
     if (!sessionId) return
     for (const m of messages) {
       if (savedIds.current.has(m.id)) continue
-      const parts = (m.parts ?? []).filter((p: any) => p.type === 'text')
+      const parts = (m.parts ?? []).filter((p: unknown) => (p as Part).type === 'text')
       if (parts.length === 0) continue
       savedIds.current.add(m.id)
       saveMessage(sessionId, { id: m.id, role: m.role as 'user' | 'assistant', parts })
@@ -166,7 +178,7 @@ export function FullscreenChat({
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as any)
+      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
     }
   }
 
@@ -179,7 +191,7 @@ export function FullscreenChat({
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full px-4">
             {projectSummary ? (
@@ -268,8 +280,8 @@ export function FullscreenChat({
         {messages.map((m) => {
           const isUser = m.role === 'user'
           const textContent = (m.parts ?? [])
-            .filter((p: any) => p.type === 'text')
-            .map((p: any) => p.text ?? '')
+            .filter((p: unknown) => (p as Part).type === 'text')
+            .map((p: unknown) => (p as Part).text ?? '')
             .join('')
 
           return (
@@ -303,7 +315,7 @@ export function FullscreenChat({
           </div>
         )}
 
-        <div ref={bottomRef} />
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Multi-model panel */}

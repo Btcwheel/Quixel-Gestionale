@@ -27,26 +27,26 @@ export default async function ClientsPage() {
         </Link>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card text-card-foreground shadow-sm overflow-hidden">
+      <div className="rounded-xl border border-border/50 bg-card text-card-foreground shadow-sm overflow-hidden border-t-[3px] border-t-emerald-500">
         <div className="p-4 border-b border-border/50 flex items-center gap-4">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-emerald-400" />
             <input
               type="search"
               placeholder="Cerca cliente..."
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pl-8"
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-emerald-500/50 disabled:cursor-not-allowed disabled:opacity-50 pl-8"
             />
           </div>
         </div>
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm">
-            <thead className="[&_tr]:border-b [&_tr]:border-border/50 bg-muted/20">
-              <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Nome</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Email</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Stato</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Progetti</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground w-[50px]"></th>
+            <thead className="[&_tr]:border-b [&_tr]:border-border/50 bg-emerald-500/10">
+              <tr className="border-b transition-colors">
+                <th className="h-12 px-4 text-left align-middle font-medium text-emerald-400">Nome</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-emerald-400">Email</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-emerald-400">Stato</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-emerald-400">Progetti</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-emerald-400 w-[50px]"></th>
               </tr>
             </thead>
             <tbody className="[&_tr:last-child]:border-0">
@@ -56,13 +56,13 @@ export default async function ClientsPage() {
                     <div className="flex flex-col items-center justify-center gap-2">
                       <UserX className="h-8 w-8 opacity-50" />
                       <p>Nessun cliente trovato nel database.</p>
-                      <p className="text-xs">Clicca "Nuovo Cliente" per aggiungerne uno.</p>
+                      <p className="text-xs">Clicca &quot;Nuovo Cliente&quot; per aggiungerne uno.</p>
                     </div>
                   </td>
                 </tr>
               ) : (
                 clients.map((client) => (
-                  <tr key={client.id} className="border-b border-border/50 transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted">
+                  <tr key={client.id} className="border-b border-border/50 transition-colors hover:bg-emerald-500/5">
                     <td className="p-4 align-middle font-medium">{client.name}</td>
                     <td className="p-4 align-middle text-muted-foreground">{client.email || 'N/D'}</td>
                     <td className="p-4 align-middle">

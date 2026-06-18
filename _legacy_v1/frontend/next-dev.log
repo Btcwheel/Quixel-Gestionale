@@ -1,0 +1,71 @@
+
+> gestionale-frontend@0.1.0 dev
+> next dev
+
+  ▲ Next.js 14.2.35
+  - Local:        http://localhost:3000
+  - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 9.2s
+ ○ Compiling /clients/[id] ...
+ ✓ Compiled /clients/[id] in 14.7s (908 modules)
+ ✓ Compiled in 1248ms (400 modules)
+ GET /clients/1 200 in 17288ms
+ ○ Compiling /projects/[id] ...
+ ✓ Compiled /documents/[id] in 23.6s (2036 modules)
+ GET /documents/1 200 in 3739ms
+ ○ Compiling /chat/[id] ...
+ ✓ Compiled /chat/[id] in 927ms (2048 modules)
+ GET /chat/conv_xyz789 200 in 2373ms
+ GET /projects/1 200 in 126ms
+ ○ Compiling / ...
+ ✓ Compiled / in 7.9s (1423 modules)
+ GET / 307 in 9221ms
+ ○ Compiling /login ...
+ ✓ Compiled /login in 2.7s (1569 modules)
+ GET /login 200 in 3378ms
+ ○ Compiling /dashboard ...
+ ✓ Compiled /dashboard in 7.7s (2662 modules)
+ ○ Compiling /clients ...
+ ✓ Compiled /clients in 3.5s (2684 modules)
+ ✓ Compiled /clients/[id] in 447ms (1112 modules)
+ ○ Compiling / ...
+ ✓ Compiled / in 1579ms (1163 modules)
+ GET / 307 in 2458ms
+ GET /login 200 in 237ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 1420ms (1195 modules)
+ GET /favicon.ico 200 in 1681ms
+ ✓ Compiled /clients in 401ms (1272 modules)
+ ○ Compiling /_not-found ...
+ ✓ Compiled /_not-found in 8.8s (2837 modules)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 12.6s (3056 modules)
+ GET / 500 in 29958ms
+ GET / 404 in 18965ms
+ GET /_next/static/css/app/layout.css?v=1776157877566 404 in 332ms
+ GET /_next/static/chunks/main-app.js?v=1776157877566 404 in 1672ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 1700ms
+ GET /clients/1 200 in 1482ms
+ GET /_next/static/css/app/layout.css?v=1776157883344 404 in 87ms
+ GET /_next/static/chunks/main-app.js?v=1776157883344 404 in 125ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 119ms
+ GET /_next/static/chunks/app/clients/%5Bid%5D/page.js 404 in 45ms
+ GET /clients 200 in 398ms
+ GET /_next/static/css/app/layout.css?v=1776157885049 404 in 149ms
+ GET /_next/static/chunks/main-app.js?v=1776157885049 404 in 439ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 541ms
+ GET /_next/static/chunks/app/clients/page.js 404 in 497ms
+ ○ Compiling /favicon.ico ...
+ ✓ Compiled /favicon.ico in 1294ms (1313 modules)
+ GET /favicon.ico 200 in 1523ms
+ GET /clients 404 in 201ms
+ GET /_next/static/css/app/layout.css?v=1776159434175 404 in 77ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 85ms
+ GET /_next/static/chunks/main-app.js?v=1776159434175 404 in 82ms
+ GET /dashboard 200 in 1422ms
+ GET /_next/static/css/app/layout.css?v=1776166663400 404 in 132ms
+ GET /_next/static/chunks/main-app.js?v=1776166663400 404 in 144ms
+ GET /_next/static/chunks/app-pages-internals.js 404 in 139ms
+ GET /_next/static/chunks/app/dashboard/page.js 404 in 140ms

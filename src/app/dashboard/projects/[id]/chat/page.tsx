@@ -24,13 +24,13 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
       `)
       .eq('id', id)
       .single(),
-    supabase.from('ai_accounts').select('id, account_name, model_name').eq('is_active', true),
+    supabase.from('ai_accounts').select('id, account_name, model_name').order('created_at', { ascending: false }),
     supabase.from('ideas').select('id, title, status').eq('project_id', id).order('created_at', { ascending: false }).limit(5),
   ])
 
   if (error || !project) notFound()
 
-  const assignments = (project.project_ai_pool_assignments ?? []) as any[]
+  const assignments = (project.project_ai_pool_assignments ?? []) as unknown as Array<{ is_primary: boolean; ai_account: { id: string; account_name: string; model_name: string } | null }>
   const primary = assignments.find(a => a.is_primary) ?? assignments[0]
   const primaryAccount = primary?.ai_account ?? null
 
@@ -65,10 +65,10 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
         .order('created_at', { ascending: true })
     : { data: [] }
 
-  const initialMessages = (savedMessages ?? []).map((m: any) => ({
+  const initialMessages = (savedMessages ?? []).map((m: { id: string; role: string; parts: unknown }) => ({
     id: m.id,
     role: m.role as 'user' | 'assistant',
-    parts: m.parts,
+    parts: m.parts as Array<{ type: string; text?: string }>,
   }))
 
   const projectSummary = {
@@ -78,13 +78,13 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
     progress: project.progress ?? 0,
     is_stuck: project.is_stuck ?? false,
     next_action: project.next_action ?? null,
-    client: (project.client as any)?.name ?? null,
+    client: (project.client as unknown as { name: string } | null)?.name ?? null,
     ideas: (ideas ?? []) as { id: string; title: string; status: string }[],
   }
 
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background flex-shrink-0">
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background flex-shrink-0 border-l-[3px] border-l-blue-500">
         <Link href={`/dashboard/projects/${id}`} className="text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
         </Link>
@@ -101,7 +101,7 @@ export default async function ProjectChatPage({ params }: { params: Promise<{ id
         )}
         <div className="flex items-center gap-2 flex-shrink-0">
           <div className="h-1.5 w-24 rounded-full bg-muted overflow-hidden hidden sm:block">
-            <div className={`h-full rounded-full ${project.is_stuck ? 'bg-red-500/60' : 'bg-primary'}`}
+            <div className={`h-full rounded-full ${project.is_stuck ? 'bg-rose-500/60' : 'bg-gradient-to-r from-blue-500 to-blue-400'}`}
               style={{ width: `${project.progress ?? 0}%` }} />
           </div>
           <span className="text-xs text-muted-foreground hidden sm:block">{project.progress ?? 0}%</span>

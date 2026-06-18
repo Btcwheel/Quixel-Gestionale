@@ -1,8 +1,9 @@
 'use client'
 
 import { deleteIdea } from '@/app/actions/ideas'
-import { Trash2 } from 'lucide-react'
+import { Trash2, MessageSquare } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import { useState } from 'react'
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -39,7 +40,7 @@ export function IdeasList({ ideas, categoryLabel }: { ideas: Idea[]; categoryLab
 
   if (ideas.length === 0) {
     return (
-      <div className="rounded-xl border border-border/50 bg-card p-12 text-center text-muted-foreground">
+      <div className="rounded-xl border border-border/50 bg-card p-12 text-center text-muted-foreground border-t-[3px] border-t-amber-500/50">
         <p className="text-sm">Nessuna idea ancora. Cattura la tua prima intuizione sopra.</p>
       </div>
     )
@@ -48,7 +49,7 @@ export function IdeasList({ ideas, categoryLabel }: { ideas: Idea[]; categoryLab
   return (
     <div className="space-y-3">
       {ideas.map(idea => (
-        <div key={idea.id} className="rounded-xl border border-border/50 bg-card p-4 shadow-sm hover:border-border transition-colors group">
+        <div key={idea.id} className="rounded-xl border border-border/50 bg-card p-4 shadow-sm hover:border-amber-500/30 hover:shadow-amber-500/5 transition-all group">
           <div className="flex items-start gap-3">
             <span className="text-lg flex-shrink-0 mt-0.5">{CATEGORY_EMOJI[idea.category] ?? '💡'}</span>
             <div className="flex-1 min-w-0">
@@ -68,11 +69,18 @@ export function IdeasList({ ideas, categoryLabel }: { ideas: Idea[]; categoryLab
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap">{idea.content}</p>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive flex-shrink-0"
-              disabled={deleting === idea.id}
-              onClick={() => handleDelete(idea.id)}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+              <Link href={`/dashboard/ideas/${idea.id}`}>
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-amber-400">
+                  <MessageSquare className="h-3.5 w-3.5" />
+                </Button>
+              </Link>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                disabled={deleting === idea.id}
+                onClick={() => handleDelete(idea.id)}>
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
       ))}

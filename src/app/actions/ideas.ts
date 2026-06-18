@@ -37,7 +37,7 @@ export async function deleteIdea(id: string) {
   revalidatePath('/dashboard/ideas')
 }
 
-export async function searchIdeas(query: string, limit = 5): Promise<any[]> {
+export async function searchIdeas(query: string, limit = 5): Promise<Record<string, unknown>[]> {
   const supabase = await createClient()
 
   const embedding = await generateEmbedding(query)

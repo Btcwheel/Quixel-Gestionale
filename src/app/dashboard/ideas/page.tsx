@@ -23,7 +23,7 @@ export default async function IdeasPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Lightbulb className="h-6 w-6 text-yellow-400" /> Idee
+            <Lightbulb className="h-6 w-6 text-amber-400" /> Idee
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
             Cattura ogni intuizione. Il sistema le memorizza e le usa automaticamente nelle chat.

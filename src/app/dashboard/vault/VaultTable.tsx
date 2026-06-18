@@ -52,16 +52,16 @@ export function VaultTable({ entries }: { entries: Entry[] }) {
   }
 
   return (
-    <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-border/50 bg-card shadow-sm overflow-hidden border-t-[3px] border-t-rose-500">
       <div className="relative w-full overflow-auto">
         <table className="w-full text-sm">
-          <thead className="bg-muted/20 border-b border-border/50">
+          <thead className="bg-rose-500/10 border-b border-border/50">
             <tr>
-              <th className="h-11 px-4 text-left font-medium text-muted-foreground">Provider</th>
-              <th className="h-11 px-4 text-left font-medium text-muted-foreground">Label / Progetto</th>
-              <th className="h-11 px-4 text-left font-medium text-muted-foreground hidden md:table-cell">Email / Username</th>
-              <th className="h-11 px-4 text-left font-medium text-muted-foreground">Piano</th>
-              <th className="h-11 px-4 text-left font-medium text-muted-foreground">Secret</th>
+              <th className="h-11 px-4 text-left font-medium text-rose-400">Provider</th>
+              <th className="h-11 px-4 text-left font-medium text-rose-400">Label / Progetto</th>
+              <th className="h-11 px-4 text-left font-medium text-rose-400 hidden md:table-cell">Email / Username</th>
+              <th className="h-11 px-4 text-left font-medium text-rose-400">Piano</th>
+              <th className="h-11 px-4 text-left font-medium text-rose-400">Secret</th>
               <th className="h-11 px-4 w-[80px]"></th>
             </tr>
           </thead>

@@ -5,11 +5,8 @@ import { ArrowLeft, Building2, Save } from "lucide-react"
 import Link from "next/link"
 import { createClientAction } from "@/app/actions/clients"
 import { useTransition } from "react"
-import { useRouter } from "next/navigation"
-
 export default function NewClientPage() {
   const [isPending, startTransition] = useTransition()
-  const router = useRouter()
 
   const handleSubmit = async (formData: FormData) => {
     startTransition(async () => {
@@ -31,11 +28,11 @@ export default function NewClientPage() {
         <h2 className="text-2xl font-bold tracking-tight">Nuovo Cliente</h2>
       </div>
 
-      <div className="rounded-xl border border-border/50 bg-card text-card-foreground shadow-sm">
+      <div className="rounded-xl border border-border/50 bg-card text-card-foreground shadow-sm border-t-[3px] border-t-emerald-500">
         <form action={handleSubmit}>
           <div className="p-6 space-y-6">
             <div className="flex items-center gap-4 border-b border-border/50 pb-6">
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-emerald-500/20 to-emerald-600/10 flex items-center justify-center text-emerald-400 ring-1 ring-emerald-500/20">
                 <Building2 className="h-6 w-6" />
               </div>
               <div>
@@ -51,7 +48,7 @@ export default function NewClientPage() {
                   id="name"
                   name="name"
                   required
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Es. Acme Corp"
                 />
               </div>
@@ -62,7 +59,7 @@ export default function NewClientPage() {
                   id="email"
                   name="email"
                   type="email"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Es. contatti@acme.com"
                 />
               </div>
@@ -73,7 +70,7 @@ export default function NewClientPage() {
                   id="phone"
                   name="phone"
                   type="tel"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Es. +39 02 1234567"
                 />
               </div>
@@ -84,7 +81,7 @@ export default function NewClientPage() {
                   id="website"
                   name="website"
                   type="url"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                   placeholder="Es. https://acme.com"
                 />
               </div>
@@ -95,7 +92,7 @@ export default function NewClientPage() {
               <textarea
                 id="description"
                 name="description"
-                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+                className="flex min-h-[100px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
                 placeholder="Aggiungi dettagli su questo cliente..."
               ></textarea>
             </div>

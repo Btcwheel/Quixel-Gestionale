@@ -1,0 +1,5 @@
+_legacy_v1/
+node_modules/
+.next/
+graphify-out/
+.git/

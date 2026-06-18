@@ -1,6 +1,5 @@
 import { createClient } from "@/lib/supabase/server"
-import { KeyRound, Plus } from "lucide-react"
-import Link from "next/link"
+import { KeyRound } from "lucide-react"
 import { VaultTable } from "./VaultTable"
 import { AddCredentialDialog } from "./AddCredentialDialog"
 
@@ -22,7 +21,7 @@ export default async function VaultPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <KeyRound className="h-6 w-6 text-primary" /> Vault
+            <KeyRound className="h-6 w-6 text-rose-400" /> Vault
           </h2>
           <p className="text-sm text-muted-foreground mt-1">Credenziali cifrate per tutti i progetti</p>
         </div>

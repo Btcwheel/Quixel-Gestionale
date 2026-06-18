@@ -40,7 +40,7 @@ export function AIAccountsList({ accounts }: { accounts: AIAccount[] }) {
     <div className="divide-y divide-border/40">
       {accounts.map(acc => (
         <div key={acc.id} className="flex items-center gap-4 px-5 py-4">
-          <div className="h-8 w-8 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-500 flex-shrink-0">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-slate-500/20 to-slate-600/10 flex items-center justify-center text-slate-400 flex-shrink-0 ring-1 ring-slate-500/20">
             <BrainCircuit className="h-4 w-4" />
           </div>
           <div className="flex-1 min-w-0">

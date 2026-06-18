@@ -12,6 +12,9 @@ export async function createProjectAction(formData: FormData) {
   const client_id = formData.get('client_id') as string
   const status = formData.get('status') as string || 'planning'
   const budgetStr = formData.get('budget') as string
+  const project_type = formData.get('project_type') as string || 'webapp'
+  const stage = formData.get('stage') as string || 'idea'
+  const monetization = formData.get('monetization') as string || 'experimental'
 
   if (!name) {
     return { error: 'Il nome del progetto è obbligatorio' }
@@ -20,12 +23,15 @@ export async function createProjectAction(formData: FormData) {
   const { error } = await supabase
     .from('projects')
     .insert([
-      { 
-        name, 
+      {
+        name,
         description: description || null,
         client_id: client_id || null,
         status,
-        budget: budgetStr ? parseFloat(budgetStr) : null
+        budget: budgetStr ? parseFloat(budgetStr) : null,
+        project_type,
+        stage,
+        monetization,
       }
     ])
 

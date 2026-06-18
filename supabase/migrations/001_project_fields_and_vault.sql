@@ -25,4 +25,7 @@ CREATE TABLE IF NOT EXISTS credential_vault (
 );
 
 ALTER TABLE credential_vault ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Allow all actions for authenticated users" ON credential_vault FOR ALL USING (auth.role() = 'authenticated');
+DO $$ BEGIN
+  CREATE POLICY "Allow all actions for authenticated users" ON credential_vault FOR ALL USING (auth.role() = 'authenticated');
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;

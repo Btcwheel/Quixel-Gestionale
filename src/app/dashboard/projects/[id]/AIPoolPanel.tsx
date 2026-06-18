@@ -75,7 +75,7 @@ export function AIPoolPanel({
 
       {assignments.length === 0 ? (
         <div className="text-sm text-muted-foreground bg-muted/30 p-4 rounded-lg text-center border border-dashed border-border/50">
-          Nessun AI collegato. Clicca "Collega" per associarne uno.
+          Nessun AI collegato. Clicca &quot;Collega&quot; per associarne uno.
         </div>
       ) : (
         <div className="space-y-2">

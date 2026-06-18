@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, GitBranch, Globe, BrainCircuit, Activity, FolderGit2, Euro, Users, AlertTriangle, MessageSquare } from "lucide-react"
+import { ArrowLeft, GitBranch, Globe, Activity, FolderGit2, Euro, Users, AlertTriangle, MessageSquare } from "lucide-react"
 import Link from "next/link"
 import { AIPoolPanel } from "./AIPoolPanel"
 
@@ -23,14 +23,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       `)
       .eq('id', id)
       .single(),
-    supabase.from('ai_accounts').select('id, account_name, model_name').eq('is_active', true)
+    supabase.from('ai_accounts').select('id, account_name, model_name').order('created_at', { ascending: false })
   ])
 
   if (error || !project) notFound()
 
-  const githubAccounts = project.external_accounts?.filter((a: any) => a.provider === 'github') ?? []
-  const vercelAccounts = project.external_accounts?.filter((a: any) => a.provider === 'vercel') ?? []
-  const assignments = (project.project_ai_pool_assignments ?? []) as any[]
+  const githubAccounts = project.external_accounts?.filter((a: { provider: string }) => a.provider === 'github') ?? []
+  const vercelAccounts = project.external_accounts?.filter((a: { provider: string }) => a.provider === 'vercel') ?? []
+  const assignments = (project.project_ai_pool_assignments ?? []) as unknown as Array<{ ai_account_id: string; is_primary: boolean; ai_account: { id: string; account_name: string; model_name: string } }>
 
   const STATUS_COLOR: Record<string, string> = {
     planning: 'bg-blue-500/15 text-blue-400',
@@ -43,7 +43,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   return (
     <div className="flex flex-col gap-6 max-w-6xl mx-auto">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 border-l-[3px] border-l-blue-500 pl-4">
         <Link href="/dashboard/projects">
           <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
             <ArrowLeft className="h-4 w-4" />
@@ -53,14 +53,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold tracking-tight truncate">{project.name}</h2>
             {project.is_stuck && (
-              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 font-medium flex-shrink-0">
+              <span className="flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-400 font-medium flex-shrink-0">
                 <AlertTriangle className="h-3 w-3" /> impantanato
               </span>
             )}
           </div>
           <p className="text-sm text-muted-foreground flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" />
-            {(project.client as any)?.name ?? 'Nessun cliente'}
+            {(project.client as unknown as { name: string } | null)?.name ?? 'Nessun cliente'}
           </p>
         </div>
         <span className={`text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0 ${STATUS_COLOR[project.status] ?? 'bg-muted text-muted-foreground'}`}>
@@ -70,19 +70,19 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="space-y-5">
-          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm">
+          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm border-t-[3px] border-t-blue-500">
             <h3 className="font-semibold flex items-center gap-2 mb-4 text-sm">
-              <FolderGit2 className="h-4 w-4 text-primary" /> Info
+              <FolderGit2 className="h-4 w-4 text-blue-400" /> Info
             </h3>
             <div className="space-y-3 text-sm">
               <div>
                 <div className="flex justify-between text-xs text-muted-foreground mb-1">
                   <span>Avanzamento</span>
-                  <span>{project.progress ?? 0}%</span>
+                  <span className="font-medium tabular-nums">{project.progress ?? 0}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className={`h-full rounded-full ${project.is_stuck ? 'bg-red-500/60' : 'bg-primary'}`}
+                    className={`h-full rounded-full ${project.is_stuck ? 'bg-rose-500/60' : 'bg-gradient-to-r from-blue-500 to-blue-400'}`}
                     style={{ width: `${project.progress ?? 0}%` }}
                   />
                 </div>
@@ -98,7 +98,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   <span className="text-xs text-muted-foreground flex items-center gap-1">
                     <Euro className="h-3.5 w-3.5" /> Budget
                   </span>
-                  <span className="font-medium">{"€ " + project.budget.toLocaleString()}</span>
+                  <span className="font-medium tabular-nums">{"€ " + project.budget.toLocaleString()}</span>
                 </div>
               )}
               {project.description && (
@@ -124,9 +124,9 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <div className="lg:col-span-2 space-y-5">
-          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm">
+          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm border-t-[3px] border-t-blue-500">
             <h3 className="font-semibold flex items-center gap-2 mb-3 text-sm">
-              <GitBranch className="h-4 w-4" /> Repository GitHub
+              <GitBranch className="h-4 w-4 text-blue-400" /> Repository GitHub
             </h3>
             {githubAccounts.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4 border border-dashed border-border/50 rounded-lg">
@@ -134,7 +134,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </p>
             ) : (
               <div className="space-y-2">
-                {githubAccounts.map((r: any) => (
+                {githubAccounts.map((r: { id: string; name: string; github_full_name?: string; url?: string }) => (
                   <div key={r.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-background">
                     <GitBranch className="h-4 w-4 flex-shrink-0" />
                     <div>
@@ -147,7 +147,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             )}
           </div>
 
-          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm">
+          <div className="rounded-xl border border-border/50 bg-card p-5 shadow-sm border-t-[3px] border-t-blue-500">
             <h3 className="font-semibold flex items-center gap-2 mb-3 text-sm">
               <Globe className="h-4 w-4 text-blue-400" /> Vercel / Hosting
             </h3>
@@ -157,7 +157,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </p>
             ) : (
               <div className="space-y-2">
-                {vercelAccounts.map((v: any) => (
+                {vercelAccounts.map((v: { id: string; name: string; url?: string }) => (
                   <div key={v.id} className="flex items-center gap-3 p-3 rounded-lg border border-border/50 bg-background">
                     <Activity className="h-4 w-4 text-emerald-500 flex-shrink-0" />
                     <div>
@@ -171,8 +171,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           </div>
 
           <Link href={`/dashboard/projects/${project.id}/chat`}
-            className="flex items-center gap-3 p-5 rounded-xl border border-border/50 bg-card shadow-sm hover:border-primary/30 hover:bg-primary/5 transition-all group">
-            <div className="h-10 w-10 rounded-lg bg-purple-500/10 flex items-center justify-center text-purple-400 flex-shrink-0">
+            className="flex items-center gap-3 p-5 rounded-xl border border-border/50 bg-card shadow-sm hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group border-t-[3px] border-t-blue-500">
+            <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/10 flex items-center justify-center text-blue-400 flex-shrink-0 ring-1 ring-blue-500/20">
               <MessageSquare className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">

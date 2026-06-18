@@ -1,14 +1,14 @@
 'use client';
 
 import { useChat } from '@ai-sdk/react';
-import { TextStreamChatTransport } from 'ai';
+import { DefaultChatTransport } from 'ai';
 import { Button } from '@/components/ui/button';
 import { Send, Bot, User } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 export function ChatPanel({ projectId }: { projectId: string }) {
   const { messages, sendMessage, status, error } = useChat({
-    transport: new TextStreamChatTransport({
+    transport: new DefaultChatTransport({
       api: '/api/chat',
       body: { projectId },
     }),
@@ -58,7 +58,7 @@ export function ChatPanel({ projectId }: { projectId: string }) {
               <div className={`rounded-lg px-4 py-2 max-w-[80%] text-sm ${
                 m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground'
               }`}>
-                {m.parts?.map((p: any, i: number) => p.type === 'text' ? <span key={i}>{p.text}</span> : null)}
+                {m.parts?.map((p: { type: string; text?: string }, i: number) => p.type === 'text' ? <span key={i}>{p.text}</span> : null)}
               </div>
             </div>
           ))
