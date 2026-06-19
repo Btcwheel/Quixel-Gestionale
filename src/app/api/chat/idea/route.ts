@@ -54,7 +54,7 @@ export async function POST(req: Request) {
     let modelName = modelOverride ?? aiAccount?.model_name ?? 'anthropic/claude-sonnet-4-6';
     let routingPrefix = '';
 
-    const isGoProvider = apiKey.startsWith('opencode-') || modelName.startsWith('opencode-go/') || (aiAccount.model_name && aiAccount.model_name.startsWith('opencode-go/'));
+    const isGoProvider = apiKey.startsWith('opencode-') || modelName.startsWith('opencode-go/') || (aiAccount?.model_name && aiAccount.model_name.startsWith('opencode-go/'));
     const baseURL = isGoProvider ? 'https://opencode.ai/zen/go/v1' : 'https://openrouter.ai/api/v1';
 
     const openrouter = createOpenAI({
