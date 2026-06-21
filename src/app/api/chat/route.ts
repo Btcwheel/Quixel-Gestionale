@@ -58,7 +58,18 @@ export async function POST(req: Request) {
 
     let apiKey = '';
     if (aiAccount?.api_key_encrypted) {
-      apiKey = await decrypt(aiAccount.api_key_encrypted);
+      try {
+        apiKey = await decrypt(aiAccount.api_key_encrypted);
+      } catch (decryptErr) {
+        console.error('[chat] decrypt failed (VAULT_SECRET mismatch?):', decryptErr);
+        return new Response(
+          JSON.stringify({
+            error: 'Impossibile decifrare la API key',
+            detail: 'La variabile VAULT_SECRET potrebbe essere diversa da quella usata durante la cifratura. Riconfigura la API key nelle Impostazioni.',
+          }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
     } else if (process.env.OPENAI_API_KEY) {
       apiKey = process.env.OPENAI_API_KEY;
     } else if (process.env.OPENCODE_API_KEY) {

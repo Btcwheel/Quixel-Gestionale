@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport, type UIMessage } from 'ai'
 import {
@@ -142,7 +142,7 @@ export function ChatsHubClient({
 
   // AI SDK Chat state
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [chatMessages, setChatMessages] = useState<any[]>(() => 
+  const [chatMessages] = useState<any[]>(() =>
     initialMessages.map(m => ({
       id: m.id,
       role: m.role,
@@ -151,71 +151,113 @@ export function ChatsHubClient({
     }))
   )
 
-  const { messages, setMessages, sendMessage, status, error } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: () => ({ 
-        projectId: activeSession?.project_id ?? null, 
-        accountId: selectedAccountId, 
-        modelOverride: selectedModel 
-      }),
+  // Refs per i valori reattivi usati nel transport body (evita la ricreazione del transport ad ogni render)
+  const activeSessionRef = useRef(activeSession)
+  activeSessionRef.current = activeSession
+  const selectedAccountIdRef = useRef(selectedAccountId)
+  selectedAccountIdRef.current = selectedAccountId
+  const selectedModelRef = useRef(selectedModel)
+  selectedModelRef.current = selectedModel
+
+  const transport = useMemo(() => new DefaultChatTransport({
+    api: '/api/chat',
+    body: () => ({
+      projectId: activeSessionRef.current?.project_id ?? null,
+      accountId: selectedAccountIdRef.current,
+      modelOverride: selectedModelRef.current,
     }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [])
+
+  const { messages, setMessages, sendMessage, status, error } = useChat({
+    transport,
     messages: chatMessages,
   })
 
   const [inputText, setInputText] = useState('')
+  const [isSessionLoading, setIsSessionLoading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const savedIds = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)))
   const isLoading = status === 'streaming' || status === 'submitted'
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const autoScrollRef = useRef(true)
   const chatContainerRef = useRef<HTMLDivElement>(null)
+
+  // Scroll: userScrolledUp = true quando l'utente ha scrollato su durante lo streaming
+  const userScrolledUpRef = useRef(false)
+  const isProgrammaticScrollRef = useRef(false)
 
   useEffect(() => {
     const container = chatContainerRef.current
     if (!container) return
     const onScroll = () => {
+      if (isProgrammaticScrollRef.current) return
       const threshold = 100
-      autoScrollRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
+      if (!atBottom) {
+        userScrolledUpRef.current = true
+      } else {
+        userScrolledUpRef.current = false
+      }
     }
-    container.addEventListener('scroll', onScroll)
+    container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
   }, [])
 
+  // Quando lo streaming finisce, riabilita l'auto-scroll
   useEffect(() => {
-    if (autoScrollRef.current) {
+    if (status === 'ready') {
+      userScrolledUpRef.current = false
+    }
+  }, [status])
+
+  useEffect(() => {
+    if (!userScrolledUpRef.current) {
+      isProgrammaticScrollRef.current = true
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
     }
   }, [messages])
 
   // Sync state when active session changes
   useEffect(() => {
+    userScrolledUpRef.current = false
+
     if (activeSessionId === initialActiveSessionId) {
       ;(setMessages as any)(chatMessages)
       savedIds.current = new Set(initialMessages.map(m => m.id))
-    } else {
+      requestAnimationFrame(() => {
+        isProgrammaticScrollRef.current = true
+        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+        requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+      })
+    } else if (activeSessionId) {
+      ;(setMessages as any)([])
+      setIsSessionLoading(true)
+
       const fetchSessionMessages = async () => {
-        if (!activeSessionId) return
-        const response = await fetch(`/api/chats/${activeSessionId}/messages`)
-        if (response.ok) {
-          const data = await response.json()
-          interface DBPart {
-            type: string
-            text?: string
+        interface DBPart { type: string; text?: string }
+        interface DBMessage { id: string; role: 'user' | 'assistant'; parts: DBPart[] }
+
+        try {
+          const response = await fetch(`/api/chats/${activeSessionId}/messages`)
+          if (response.ok) {
+            const data = await response.json()
+            const loaded = (data as DBMessage[]).map((m) => ({
+              id: m.id,
+              role: m.role,
+              content: m.parts.map((p) => p.text ?? '').join(''),
+              parts: m.parts,
+            }))
+            ;(setMessages as any)(loaded)
+            savedIds.current = new Set(loaded.map((m) => m.id))
+            requestAnimationFrame(() => {
+              isProgrammaticScrollRef.current = true
+              messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
+              requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+            })
           }
-          interface DBMessage {
-            id: string
-            role: 'user' | 'assistant'
-            parts: DBPart[]
-          }
-          const loaded = (data as DBMessage[]).map((m) => ({
-            id: m.id,
-            role: m.role,
-            content: m.parts.map((p) => p.text ?? '').join(''),
-            parts: m.parts
-          }))
-          ;(setMessages as any)(loaded)
-          savedIds.current = new Set(loaded.map((m) => m.id))
+        } finally {
+          setIsSessionLoading(false)
         }
       }
       fetchSessionMessages()
@@ -614,7 +656,12 @@ export function ChatsHubClient({
 
             {/* Message Feed */}
             <div ref={chatContainerRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-              {messages.length === 0 && (
+              {isSessionLoading && (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              )}
+              {!isSessionLoading && messages.length === 0 && (
                 <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
                   <div className="h-12 w-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-400 shadow-md">
                     <Sparkles className="h-6 w-6" />
@@ -632,7 +679,7 @@ export function ChatsHubClient({
                 </div>
               )}
 
-              {messages.map((m) => {
+              {!isSessionLoading && messages.map((m) => {
                 const isUser = m.role === 'user'
                 const textContent = ((m as any).parts ?? [])
                   .filter((p: { type: string; text?: string }) => p.type === 'text')
