@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import { DefaultChatTransport, type UIMessage, type FileUIPart } from 'ai'
 import {
   MessageSquare,
   Plus,
@@ -11,7 +11,6 @@ import {
   Trash2,
   Bot,
   User,
-  Send,
   Loader2,
   ChevronDown,
   Lightbulb,
@@ -20,9 +19,11 @@ import {
   Sparkles,
   BrainCircuit,
   Briefcase,
-  Layers
+  Layers,
+  FileText
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { MultimodalInput } from '@/components/MultimodalInput'
 import {
   createChatSession,
   deleteChatSession,
@@ -174,9 +175,7 @@ export function ChatsHubClient({
     messages: chatMessages,
   })
 
-  const [inputText, setInputText] = useState('')
   const [isSessionLoading, setIsSessionLoading] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const savedIds = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)))
   const isLoading = status === 'streaming' || status === 'submitted'
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -276,33 +275,16 @@ export function ChatsHubClient({
     for (const m of messages) {
       if (savedIds.current.has(m.id)) continue
       const msg = m as any
-      const parts = (msg.parts as Array<{ type: string; text?: string }> | undefined)?.filter((p: { type: string }) => p.type === 'text') || [{ type: 'text', text: msg.content }]
-      if (parts.length === 0 || !parts[0].text) continue
+      const parts = (msg.parts as Array<{ type: string; text?: string; url?: string; mediaType?: string }> | undefined) ?? [{ type: 'text', text: msg.content }]
+      if (parts.length === 0) continue
       savedIds.current.add(m.id)
       saveMessage(activeSessionId, { id: m.id, role: m.role as 'user' | 'assistant', parts })
     }
   }, [messages, activeSessionId])
 
-  function handleSend(e: React.FormEvent) {
-    e.preventDefault()
-    if (!inputText.trim() || isLoading || aiAccounts.length === 0) return
-    const userText = inputText
-    setInputText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    sendMessage({ text: userText })
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend(e as unknown as React.FormEvent<HTMLFormElement>)
-    }
-  }
-
-  function handleTextareaInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setInputText(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+  function handleSend(text: string, fileParts: FileUIPart[]) {
+    if ((!text.trim() && fileParts.length === 0) || isLoading || aiAccounts.length === 0) return
+    sendMessage({ text, files: fileParts } as { text: string; files: FileUIPart[] })
   }
 
   // Create Chat Session
@@ -687,10 +669,12 @@ export function ChatsHubClient({
 
               {!isSessionLoading && messages.map((m) => {
                 const isUser = m.role === 'user'
-                const textContent = ((m as any).parts ?? [])
+                const parts = (m as any).parts ?? []
+                const textContent = parts
                   .filter((p: { type: string; text?: string }) => p.type === 'text')
                   .map((p: { type: string; text?: string }) => p.text ?? '')
                   .join('') || (m as any).content || ''
+                const fileParts = parts.filter((p: { type: string }) => p.type === 'file')
                 return (
                   <div key={m.id} className={`flex gap-3.5 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
                     <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -699,11 +683,20 @@ export function ChatsHubClient({
                       {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
                     </div>
                     <div className="space-y-1.5 max-w-[85%]">
-                      <div className={`rounded-2xl px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                      <div className={`rounded-2xl px-4 py-3.5 text-sm leading-relaxed whitespace-pre-wrap space-y-2 ${
                         isUser 
                           ? 'bg-primary text-primary-foreground rounded-tr-sm' 
                           : 'bg-muted/70 border border-border/30 text-foreground rounded-tl-sm'
                       }`}>
+                        {fileParts.length > 0 && (
+                          <div className="flex gap-2 flex-wrap">
+                            {fileParts.map((fp: { url: string; mediaType?: string; filename?: string }, idx: number) => (
+                              fp.mediaType?.startsWith('image/')
+                                ? <img key={idx} src={fp.url} alt={fp.filename ?? ''} className="max-w-[240px] max-h-[240px] rounded-lg object-cover" />
+                                : <div key={idx} className="flex items-center gap-2 text-xs bg-background/50 rounded-lg px-3 py-2"><FileText className="h-4 w-4" /><span>{fp.filename ?? 'File'}</span></div>
+                            ))}
+                          </div>
+                        )}
                         {textContent}
                       </div>
                       
@@ -749,12 +742,11 @@ export function ChatsHubClient({
 
             {/* Input Bar */}
             <div className="border-t border-border/50 bg-card/20 px-6 py-4 flex-shrink-0">
-              <form onSubmit={handleSend} className="max-w-3xl mx-auto flex gap-3 items-end">
-                <textarea
-                  ref={textareaRef}
-                  value={inputText}
-                  onChange={handleTextareaInput}
-                  onKeyDown={handleKeyDown}
+              <div className="max-w-3xl mx-auto">
+                <MultimodalInput
+                  onSend={handleSend}
+                  disabled={aiAccounts.length === 0}
+                  isLoading={isLoading}
                   placeholder={
                     aiAccounts.length === 0
                       ? 'Nessun account AI. Aggiungine uno in Impostazioni.'
@@ -762,19 +754,8 @@ export function ChatsHubClient({
                         ? 'Scrivi qui per il progetto...'
                         : 'Avvia una ricerca o fai una domanda libera (es. stile Perplexity)...'
                   }
-                  disabled={aiAccounts.length === 0 || isLoading}
-                  rows={1}
-                  className="flex-1 rounded-xl border border-input bg-muted/40 px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none min-h-[44px] max-h-[160px] disabled:opacity-50"
                 />
-                <Button 
-                  type="submit" 
-                  size="icon" 
-                  className="h-11 w-11 rounded-xl flex-shrink-0 bg-gradient-to-br from-violet-500 to-blue-500 hover:from-violet-600 hover:to-blue-600 shadow-md text-white"
-                  disabled={!inputText.trim() || isLoading || aiAccounts.length === 0}
-                >
-                  {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                </Button>
-              </form>
+              </div>
             </div>
           </>
         ) : (

@@ -106,7 +106,10 @@ export async function POST(req: Request) {
     if (modelName === 'orchestrated') {
       try {
         const lastUserMessage = [...messages].reverse().find(m => m.role === 'user');
-        const userPrompt = lastUserMessage?.content || (lastUserMessage?.parts as Array<{ type: string; text?: string }> | undefined)?.filter((p) => p.type === 'text').map((p) => p.text).join('') || '';
+        const msg = lastUserMessage as { content?: string; parts?: Array<{ type: string; text?: string; mediaType?: string; url?: string }> } | undefined;
+        const userPrompt = msg?.content || (msg?.parts ?? []).filter((p) => p.type === 'text').map((p) => p.text).join('') || '';
+        const hasFiles = (msg?.parts ?? []).some((p) => p.type === 'file');
+        const fileTypes = (msg?.parts ?? []).filter((p) => p.type === 'file').map((p) => p.mediaType ?? '').filter(Boolean);
 
         // Configure models based on provider
         const classifierModel = isGoProvider ? 'opencode-go/deepseek-v4-flash' : 'google/gemini-2.5-flash-preview';
@@ -115,12 +118,16 @@ export async function POST(req: Request) {
         const highModel = isGoProvider ? 'opencode-go/glm-5.1' : 'deepseek/deepseek-r1';
 
         // Classify using the cheap model
+        const multimodalContext = hasFiles
+          ? `\n\nL'utente ha anche allegato ${fileTypes.length === 1 ? 'un file' : `${fileTypes.length} file`} (${fileTypes.join(', ') || 'vari formati'}). Preferisci un modello con buona capacità multimodale (GPT-4o, Claude, Gemini) se l'analisi visiva è rilevante.`
+          : '';
+
         const classification = await generateText({
           model: llm(classifierModel),
-          system: `Sei l'orchestratore del Gestionale Quixel. Analizza il prompt dell'utente per determinare la complessità e scegliere il modello ottimale.
+          system: `Sei l'orchestratore del Gestionale Quixel. Analizza il prompt dell'utente per determinare la complessità e scegliere il modello ottimale.${multimodalContext}
 Scegli tra questi 3 modelli:
 - "${lowModel}" -> per compiti semplici, domande teoriche, spiegazioni rapide, traduzioni, formattazione o riassunti.
-- "${medModel}" -> per programmazione, creazione di componenti React/UI, refactoring di file, logica server o stesura di requisiti tecnici.
+- "${medModel}" -> per programmazione, creazione di componenti React/UI, refactoring di file, logica server o stesura di requisiti tecnici. Se ci sono immagini/PDF da analizzare visivamente, scegli questo o il modello superiore.
 - "${highModel}" -> per calcoli matematici, algoritmi complessi, debug approfonditi di errori inspiegabili, architetture complesse di database o ragionamento puro.
 
 Rispondi ESCLUSIVAMENTE in formato JSON valido:
@@ -129,7 +136,7 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido:
   "modelFriendlyName": "Nome del modello scelto (es. Claude 3.5 Sonnet, DeepSeek R1, Kimi K2.7, GLM 5.1 o DeepSeek V4 Flash)",
   "reasoning": "Breve spiegazione del perché hai scelto questo modello (max 15 parole)"
 }`,
-          prompt: `MESSAGGIO UTENTE: "${userPrompt}"`,
+          prompt: `MESSAGGIO UTENTE: "${userPrompt}"${hasFiles ? '\n\n[L\'utente ha allegato file - considera la multimodalità nella scelta del modello]' : ''}`,
           maxOutputTokens: 150,
         });
 

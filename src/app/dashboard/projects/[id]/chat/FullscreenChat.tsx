@@ -1,9 +1,10 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport, type UIMessage } from 'ai'
+import { DefaultChatTransport, type UIMessage, type FileUIPart } from 'ai'
 import { Button } from '@/components/ui/button'
-import { Send, Bot, User, Loader2, ChevronDown, GitCompare, AlertTriangle, Lightbulb, CircleDot } from 'lucide-react'
+import { MultimodalInput } from '@/components/MultimodalInput'
+import { Bot, User, ChevronDown, GitCompare, AlertTriangle, Lightbulb, CircleDot, FileText } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { saveMessage } from '@/app/actions/chat'
 import { MultiModelPanel } from './MultiModelPanel'
@@ -114,11 +115,9 @@ export function FullscreenChat({
     messages: initialMessages as UIMessage[],
   })
 
-  const [text, setText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const savedIds = useRef<Set<string>>(new Set(initialMessages.map(m => m.id)))
   const isLoading = status === 'streaming' || status === 'submitted'
 
@@ -143,20 +142,16 @@ export function FullscreenChat({
     if (!sessionId) return
     for (const m of messages) {
       if (savedIds.current.has(m.id)) continue
-      const parts = (m.parts ?? []).filter((p: unknown) => (p as Part).type === 'text')
+      const parts = m.parts ?? []
       if (parts.length === 0) continue
       savedIds.current.add(m.id)
       saveMessage(sessionId, { id: m.id, role: m.role as 'user' | 'assistant', parts })
     }
   }, [messages, sessionId])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!text.trim() || isLoading || disabled) return
-    const userText = text
-    setText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    sendMessage({ text: userText })
+  function handleSubmit(text: string, fileParts: FileUIPart[]) {
+    if ((!text.trim() && fileParts.length === 0) || isLoading || disabled) return
+    sendMessage({ text, files: fileParts } as { text: string; files: FileUIPart[] })
   }
 
   async function handleMultiModelSave(question: string, synthesis: string) {
@@ -173,19 +168,6 @@ export function FullscreenChat({
     savedIds.current.add(userId)
     savedIds.current.add(assistantId)
     setShowMultiModel(false)
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
-    }
-  }
-
-  function handleTextareaInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setText(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
   }
 
   return (
@@ -279,17 +261,29 @@ export function FullscreenChat({
 
         {messages.map((m) => {
           const isUser = m.role === 'user'
-          const textContent = (m.parts ?? [])
+          const parts = m.parts ?? []
+          const textContent = parts
             .filter((p: unknown) => (p as Part).type === 'text')
             .map((p: unknown) => (p as Part).text ?? '')
             .join('')
+          const fileParts = parts.filter((p: unknown) => (p as Part).type === 'file')
 
           return (
             <div key={m.id} className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
               <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-primary text-primary-foreground' : 'bg-purple-500/10 text-purple-400'}`}>
                 {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
               </div>
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap max-w-[80%] ${isUser ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted text-foreground rounded-tl-sm'}`}>
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap max-w-[80%] space-y-2 ${isUser ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-muted text-foreground rounded-tl-sm'}`}>
+                {fileParts.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {fileParts.map((fp: unknown, idx: number) => {
+                      const f = fp as { url: string; mediaType?: string; filename?: string }
+                      return f.mediaType?.startsWith('image/')
+                        ? <img key={idx} src={f.url} alt={f.filename ?? ''} className="max-w-[240px] max-h-[240px] rounded-lg object-cover" />
+                        : <div key={idx} className="flex items-center gap-2 text-xs bg-background/50 rounded-lg px-3 py-2"><FileText className="h-4 w-4" /><span>{f.filename ?? 'File'}</span></div>
+                    })}
+                  </div>
+                )}
                 {textContent}
               </div>
             </div>
@@ -387,22 +381,12 @@ export function FullscreenChat({
             </Button>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex gap-3 items-end">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextareaInput}
-              onKeyDown={handleKeyDown}
-              placeholder={disabled ? 'Collega un AI al progetto per iniziare...' : 'Scrivi un messaggio... (Invio per inviare, Shift+Invio per andare a capo)'}
-              disabled={disabled || isLoading}
-              rows={1}
-              className="flex-1 rounded-xl border border-input bg-muted px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none min-h-[48px] max-h-[200px] disabled:opacity-50"
-            />
-            <Button type="submit" size="icon" className="h-12 w-12 rounded-xl flex-shrink-0"
-              disabled={!text.trim() || isLoading || disabled}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
+          <MultimodalInput
+            onSend={handleSubmit}
+            disabled={disabled}
+            isLoading={isLoading}
+            placeholder={disabled ? 'Collega un AI al progetto per iniziare...' : 'Scrivi un messaggio... (Invio per inviare, Shift+Invio per andare a capo)'}
+          />
         </div>
       </div>
     </div>

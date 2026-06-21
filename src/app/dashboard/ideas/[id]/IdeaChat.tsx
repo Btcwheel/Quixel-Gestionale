@@ -1,9 +1,9 @@
 'use client'
 
 import { useChat } from '@ai-sdk/react'
-import { DefaultChatTransport } from 'ai'
-import { Button } from '@/components/ui/button'
-import { Send, Bot, User, Loader2, ChevronDown } from 'lucide-react'
+import { DefaultChatTransport, type FileUIPart } from 'ai'
+import { MultimodalInput } from '@/components/MultimodalInput'
+import { Bot, User, ChevronDown, FileText } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 
 const OPENROUTER_MODELS = [
@@ -85,11 +85,9 @@ export function IdeaChat({
     }),
   })
 
-  const [text, setText] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const autoScrollRef = useRef(true)
   const chatContainerRef = useRef<HTMLDivElement>(null)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const isLoading = status === 'streaming' || status === 'submitted'
   const disabled = aiAccounts.length === 0
 
@@ -110,26 +108,9 @@ export function IdeaChat({
     }
   }, [messages])
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!text.trim() || isLoading || disabled) return
-    const userText = text
-    setText('')
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
-    sendMessage({ text: userText })
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent<HTMLFormElement>)
-    }
-  }
-
-  function handleTextareaInput(e: React.ChangeEvent<HTMLTextAreaElement>) {
-    setText(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
+  function handleSubmit(text: string, fileParts: FileUIPart[]) {
+    if ((!text.trim() && fileParts.length === 0) || isLoading || disabled) return
+    sendMessage({ text, files: fileParts } as { text: string; files: FileUIPart[] })
   }
 
   return (
@@ -149,17 +130,29 @@ export function IdeaChat({
 
         {messages.map((m) => {
           const isUser = m.role === 'user'
-          const textContent = (m.parts ?? [])
+          const parts = m.parts ?? []
+          const textContent = parts
             .filter((p: { type: string; text?: string }) => p.type === 'text')
             .map((p: { type: string; text?: string }) => p.text ?? '')
             .join('')
+          const fileParts = parts.filter((p: { type: string }) => p.type === 'file')
 
           return (
             <div key={m.id} className={`flex gap-3 max-w-3xl ${isUser ? 'ml-auto flex-row-reverse' : ''}`}>
               <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${isUser ? 'bg-primary text-primary-foreground' : 'bg-amber-500/10 text-amber-400'}`}>
                 {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
               </div>
-              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap max-w-[80%] ${isUser ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-amber-500/10 text-foreground rounded-tl-sm border border-amber-500/10'}`}>
+              <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap max-w-[80%] space-y-2 ${isUser ? 'bg-primary text-primary-foreground rounded-tr-sm' : 'bg-amber-500/10 text-foreground rounded-tl-sm border border-amber-500/10'}`}>
+                {fileParts.length > 0 && (
+                  <div className="flex gap-2 flex-wrap">
+                    {fileParts.map((fp, idx) => {
+                      const f = fp as { url: string; mediaType?: string; filename?: string }
+                      return f.mediaType?.startsWith('image/')
+                        ? <img key={idx} src={f.url} alt={f.filename ?? ''} className="max-w-[240px] max-h-[240px] rounded-lg object-cover" />
+                        : <div key={idx} className="flex items-center gap-2 text-xs bg-background/50 rounded-lg px-3 py-2"><FileText className="h-4 w-4" /><span>{f.filename ?? 'File'}</span></div>
+                    })}
+                  </div>
+                )}
                 {textContent}
               </div>
             </div>
@@ -234,22 +227,12 @@ export function IdeaChat({
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="flex gap-3 items-end">
-            <textarea
-              ref={textareaRef}
-              value={text}
-              onChange={handleTextareaInput}
-              onKeyDown={handleKeyDown}
-              placeholder={disabled ? 'Configura un account AI per iniziare...' : 'Fai una domanda, chiedi di svilupparla, mettila alla prova... (Invio per inviare)'}
-              disabled={disabled || isLoading}
-              rows={1}
-              className="flex-1 rounded-xl border border-input bg-muted px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none min-h-[48px] max-h-[200px] disabled:opacity-50"
-            />
-            <Button type="submit" size="icon" className="h-12 w-12 rounded-xl flex-shrink-0"
-              disabled={!text.trim() || isLoading || disabled}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-            </Button>
-          </form>
+          <MultimodalInput
+            onSend={handleSubmit}
+            disabled={disabled}
+            isLoading={isLoading}
+            placeholder={disabled ? 'Configura un account AI per iniziare...' : 'Fai una domanda, chiedi di svilupparla, mettila alla prova... (Invio per inviare)'}
+          />
         </div>
       </div>
     </div>
