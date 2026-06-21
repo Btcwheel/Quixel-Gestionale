@@ -242,12 +242,18 @@ export function ChatsHubClient({
           const response = await fetch(`/api/chats/${activeSessionId}/messages`)
           if (response.ok) {
             const data = await response.json()
-            const loaded = (data as DBMessage[]).map((m) => ({
-              id: m.id,
-              role: m.role,
-              content: m.parts.map((p) => p.text ?? '').join(''),
-              parts: m.parts,
-            }))
+            const loaded = (data as DBMessage[])
+              .filter((m) => {
+                if (m.role !== 'assistant') return true
+                const text = m.parts.filter(p => p.type === 'text').map(p => p.text ?? '').join('')
+                return text.trim().length > 0
+              })
+              .map((m) => ({
+                id: m.id,
+                role: m.role,
+                content: m.parts.map((p) => p.text ?? '').join(''),
+                parts: m.parts,
+              }))
             ;(setMessages as any)(loaded)
             savedIds.current = new Set(loaded.map((m) => m.id))
             requestAnimationFrame(() => {

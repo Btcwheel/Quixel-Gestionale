@@ -167,7 +167,13 @@ Rispondi sempre in italiano. Sii diretto, concreto e professionale. Quando usi g
 ${routingPrefix}`;
     }
 
-    const modelMessages = await convertToModelMessages(messages);
+    // Filtra i messaggi assistant vuoti — possono finire nel DB se lo streaming viene interrotto
+    const cleanMessages = messages.filter((m: { role: string; parts?: Array<{ type: string; text?: string }>; content?: string }) => {
+      if (m.role !== 'assistant') return true
+      const text = (m.parts ?? []).filter(p => p.type === 'text').map(p => p.text ?? '').join('') || m.content || ''
+      return text.trim().length > 0
+    })
+    const modelMessages = await convertToModelMessages(cleanMessages);
 
     const streamModel = isGoProvider && modelName.startsWith('opencode-go/') ? modelName.slice('opencode-go/'.length) : modelName;
     console.log('[chat] model:', modelName, '| streamModel:', streamModel, '| messages:', modelMessages.length, '| ideasCtx:', relevantIdeas.length, '| cliCtx:', relevantCLIs.length);
