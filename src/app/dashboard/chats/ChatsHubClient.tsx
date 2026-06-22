@@ -181,22 +181,23 @@ export function ChatsHubClient({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
 
-  // Scroll: userScrolledUp = true quando l'utente ha scrollato su durante lo streaming
-  const userScrolledUpRef = useRef(false)
+  // Scroll: isAtBottomRef = true finché l'utente non scrolla su manualmente
+  const isAtBottomRef = useRef(true)
   const isProgrammaticScrollRef = useRef(false)
+
+  const scrollToBottom = (behavior: ScrollBehavior = 'instant') => {
+    isProgrammaticScrollRef.current = true
+    messagesEndRef.current?.scrollIntoView({ behavior })
+    setTimeout(() => { isProgrammaticScrollRef.current = false }, 50)
+  }
 
   useEffect(() => {
     const container = chatContainerRef.current
     if (!container) return
     const onScroll = () => {
       if (isProgrammaticScrollRef.current) return
-      const threshold = 100
-      const atBottom = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
-      if (!atBottom) {
-        userScrolledUpRef.current = true
-      } else {
-        userScrolledUpRef.current = false
-      }
+      const threshold = 50
+      isAtBottomRef.current = container.scrollHeight - container.scrollTop - container.clientHeight < threshold
     }
     container.addEventListener('scroll', onScroll, { passive: true })
     return () => container.removeEventListener('scroll', onScroll)
@@ -205,30 +206,25 @@ export function ChatsHubClient({
   // Quando lo streaming finisce, riabilita l'auto-scroll
   useEffect(() => {
     if (status === 'ready') {
-      userScrolledUpRef.current = false
+      isAtBottomRef.current = true
     }
   }, [status])
 
   useEffect(() => {
-    if (!userScrolledUpRef.current) {
-      isProgrammaticScrollRef.current = true
-      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-      requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
+    if (isAtBottomRef.current) {
+      scrollToBottom('instant')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
 
   // Sync state when active session changes
   useEffect(() => {
-    userScrolledUpRef.current = false
+    isAtBottomRef.current = true
 
     if (activeSessionId === initialActiveSessionId) {
       ;(setMessages as any)(chatMessages)
       savedIds.current = new Set(initialMessages.map(m => m.id))
-      requestAnimationFrame(() => {
-        isProgrammaticScrollRef.current = true
-        messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-        requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
-      })
+      requestAnimationFrame(() => scrollToBottom('instant'))
     } else if (activeSessionId) {
       ;(setMessages as any)([])
       setIsSessionLoading(true)
@@ -255,11 +251,7 @@ export function ChatsHubClient({
               }))
             ;(setMessages as any)(loaded)
             savedIds.current = new Set(loaded.map((m) => m.id))
-            requestAnimationFrame(() => {
-              isProgrammaticScrollRef.current = true
-              messagesEndRef.current?.scrollIntoView({ behavior: 'instant' })
-              requestAnimationFrame(() => { isProgrammaticScrollRef.current = false })
-            })
+            requestAnimationFrame(() => scrollToBottom('instant'))
           }
         } finally {
           setIsSessionLoading(false)
@@ -267,20 +259,31 @@ export function ChatsHubClient({
       }
       fetchSessionMessages()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId])
 
   // Save new messages automatically to the DB
+  // I messaggi assistant vengono salvati solo a streaming completato per evitare di
+  // registrare contenuto parziale nel DB (l'ID verrebbe marcato come già salvato)
   useEffect(() => {
     if (!activeSessionId) return
+    const isStreaming = status === 'streaming' || status === 'submitted'
     for (const m of messages) {
       if (savedIds.current.has(m.id)) continue
+      if (m.role === 'assistant' && isStreaming) continue
       const msg = m as any
       const parts = (msg.parts as Array<{ type: string; text?: string; url?: string; mediaType?: string }> | undefined) ?? [{ type: 'text', text: msg.content }]
       if (parts.length === 0) continue
+      if (m.role === 'assistant') {
+        const hasContent = parts.some((p: { type: string; text?: string }) =>
+          p.type !== 'text' || (p.text && p.text.trim().length > 0)
+        )
+        if (!hasContent) continue
+      }
       savedIds.current.add(m.id)
       saveMessage(activeSessionId, { id: m.id, role: m.role as 'user' | 'assistant', parts })
     }
-  }, [messages, activeSessionId])
+  }, [messages, status, activeSessionId])
 
   function handleSend(text: string, fileParts: FileUIPart[]) {
     if ((!text.trim() && fileParts.length === 0) || isLoading || aiAccounts.length === 0) return
