@@ -12,7 +12,8 @@ interface MultimodalInputProps {
   placeholder?: string
 }
 
-const ACCEPTED_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml', 'application/pdf', 'text/plain', 'text/csv']
+const IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/svg+xml']
+const TEXT_TYPES = ['text/plain', 'text/csv', 'application/json', '.env', 'text/markdown', 'text/x-shellscript', 'text/x-python', 'text/javascript', 'text/typescript']
 
 export function MultimodalInput({
   onSend,
@@ -35,21 +36,31 @@ export function MultimodalInput({
   const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault()
     if ((!text.trim() && files.length === 0) || isLoading || disabled) return
-    const textToSend = text
+    let textToSend = text
+    const fileParts: FileUIPart[] = []
 
-    const fileParts: FileUIPart[] = await Promise.all(
-      files.map(file => new Promise<FileUIPart>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve({
-          type: 'file',
-          mediaType: file.type,
-          filename: file.name,
-          url: reader.result as string,
+    for (const file of files) {
+      if (IMAGE_TYPES.includes(file.type)) {
+        const dataUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
         })
-        reader.onerror = reject
-        reader.readAsDataURL(file)
-      }))
-    )
+        fileParts.push({ type: 'file', mediaType: file.type, filename: file.name, url: dataUrl })
+      } else {
+        const content = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsText(file)
+        })
+        const fileHeader = `--- Contenuto di "${file.name}" ---\n`
+        textToSend = textToSend
+          ? `${textToSend}\n\n${fileHeader}${content}\n--- Fine "${file.name}" ---`
+          : `${fileHeader}${content}\n--- Fine "${file.name}" ---`
+      }
+    }
 
     setText('')
     setFiles([])
@@ -87,7 +98,7 @@ export function MultimodalInput({
     e.preventDefault()
     setIsDragOver(false)
     const dropped = Array.from(e.dataTransfer.files).filter(f =>
-      ACCEPTED_TYPES.includes(f.type) || f.type.startsWith('image/')
+      IMAGE_TYPES.includes(f.type) || f.type.startsWith('text/') || f.name.endsWith('.md')
     )
     if (dropped.length > 0) setFiles(prev => [...prev, ...dropped])
   }, [])
@@ -140,7 +151,7 @@ export function MultimodalInput({
         ref={fileInputRef}
         type="file"
         multiple
-        accept={ACCEPTED_TYPES.join(',')}
+        accept={[...IMAGE_TYPES, 'text/plain', 'text/csv', '.md', 'application/json'].join(',')}
         onChange={handleFileSelect}
         className="hidden"
       />
