@@ -180,7 +180,10 @@ ${routingPrefix}`;
       const text = (m.parts ?? []).filter(p => p.type === 'text').map(p => p.text ?? '').join('') || m.content || ''
       return text.trim().length > 0
     })
-    const modelMessages = await convertToModelMessages(cleanMessages);
+
+    // Converte file part non-immagine in parti di testo (i provider non supportano text/plain come file)
+    const sanitizedMessages = cleanMessages.map(sanitizeFileParts);
+    const modelMessages = await convertToModelMessages(sanitizedMessages);
 
     const streamModel = isGoProvider && modelName.startsWith('opencode-go/') ? modelName.slice('opencode-go/'.length) : modelName;
     console.log('[chat] model:', modelName, '| streamModel:', streamModel, '| messages:', modelMessages.length, '| ideasCtx:', relevantIdeas.length, '| cliCtx:', relevantCLIs.length);
@@ -252,4 +255,23 @@ async function getRelevantIdeas(supabase: Awaited<ReturnType<typeof createClient
   } catch {
     return [];
   }
+}
+
+
+// Converte file part non-immagine in parti di testo (i provider rifiutano text/plain come file)
+function sanitizeFileParts(msg: { role: string; parts?: Array<{ type: string; text?: string; url?: string; mediaType?: string; filename?: string }>; content?: string }) {
+  if (!msg.parts) return msg;
+  const sanitized = msg.parts.map(p => {
+    if (p.type !== 'file' || !p.url) return p;
+    if (p.mediaType?.startsWith('image/')) return p;
+    try {
+      const match = p.url.match(/^data:(text\/\w+);base64,(.+)$/);
+      if (match) {
+        const decoded = atob(match[2]);
+        return { type: 'text' as const, text: '[File: ' + (p.filename ?? 'allegato') + ']\n' + decoded };
+      }
+    } catch {}
+    return { type: 'text' as const, text: '[File: ' + (p.filename ?? 'allegato') + ' (contenuto non decodificabile)]' };
+  });
+  return { ...msg, parts: sanitized };
 }
