@@ -3,7 +3,10 @@ import { notFound } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, GitBranch, Globe, Activity, FolderGit2, Euro, Users, AlertTriangle, MessageSquare } from "lucide-react"
 import Link from "next/link"
+import dynamic from "next/dynamic"
 import { AIPoolPanel } from "./AIPoolPanel"
+
+const MaintenancePanel = dynamic(() => import('@/components/MaintenancePanel').then(m => ({ default: m.MaintenancePanel })))
 
 export default async function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -169,6 +172,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               </div>
             )}
           </div>
+
+          <MaintenancePanel projectId={project.id} />
 
           <Link href={`/dashboard/projects/${project.id}/chat`}
             className="flex items-center gap-3 p-5 rounded-xl border border-border/50 bg-card shadow-sm hover:border-blue-500/30 hover:bg-blue-500/5 transition-all group border-t-[3px] border-t-blue-500">
