@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, generateText, convertToModelMessages, tool } from 'ai';
+import { streamText, generateText, convertToModelMessages, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/crypto';
@@ -133,7 +133,7 @@ Il tuo ruolo è:
 
 Rispondi sempre in italiano. Sii diretto, curioso e stimolante — non limitarti a confermare, metti alla prova l'idea.
 
-Hai a disposizione lo strumento \`web_search\` per cercare informazioni aggiornate sul web. Usalo quando il prompt richiede dati non presenti nella tua memoria (es. notizie attuali, prezzi, documentazione aggiornata, tendenze di mercato). Non usarlo per domande generiche o concettuali che puoi già rispondere.`;
+**IMPORTANTE**: Hai lo strumento \`web_search\`. Se l'utente chiede dati in tempo reale, notizie attuali, prezzi, documentazione aggiornata, statistiche, API changes, o qualsiasi informazione potenzialmente cambiata dopo la tua data di training, **USA QUESTO STRUMENTO**. Non dire mai che non puoi accedere a internet — \`web_search\` è la tua connessione al web ed esegue ricerche in tempo reale per tuo conto.`;
 
     if (routingPrefix) {
       systemPrompt += `\n\nIMPORTANTE: Devi iniziare la tua risposta esattamente con questa riga di intestazione (inclusi i caratteri markdown e i due a capo alla fine):
@@ -170,6 +170,7 @@ ${routingPrefix}`;
           },
         }),
       },
+      stopWhen: stepCountIs(5),
       onError: (e) => console.error('[idea-chat] streamText error:', e),
     });
 
