@@ -1,8 +1,11 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, generateText, convertToModelMessages } from 'ai';
+import { streamText, generateText, convertToModelMessages, tool } from 'ai';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/crypto';
 import { generateEmbedding } from '@/lib/embeddings';
+import { searchWeb } from '@/lib/web-search';
+import { sanitizeSearchResults } from '@/lib/search-agent';
 
 export const maxDuration = 60;
 
@@ -163,10 +166,12 @@ Rispondi ESCLUSIVAMENTE in formato JSON valido:
         ).join('\n')}`
       : '';
 
+    const webSearchNote = `\n\nHai a disposizione lo strumento \`web_search\` per cercare informazioni aggiornate sul web. Usalo quando il prompt richiede dati non presenti nella tua memoria (es. notizie attuali, prezzi, documentazione aggiornata, tendenze di mercato). Non usarlo per domande generiche o concettuali che puoi già rispondere.`;
+
     let systemPrompt = project
-      ? `Sei l'assistente AI personale dedicato al progetto "${project.name}".${project.description ? `\nDescrizione: ${project.description}` : ''}${ideasContext}${cliContext}
+      ? `Sei l'assistente AI personale dedicato al progetto "${project.name}".${project.description ? `\nDescrizione: ${project.description}` : ''}${ideasContext}${cliContext}${webSearchNote}
 Rispondi sempre in italiano. Sii diretto, concreto e professionale. Quando usi gli insight dell'archivio personale, integrali naturalmente nel ragionamento senza citarli esplicitamente.`
-      : `Sei l'assistente AI personale del gestionale Quixel, dedicato al brainstorming e allo sviluppo di idee.${ideasContext}${cliContext}
+      : `Sei l'assistente AI personale del gestionale Quixel, dedicato al brainstorming e allo sviluppo di idee.${ideasContext}${cliContext}${webSearchNote}
 Rispondi sempre in italiano. Sii diretto, concreto e professionale. Quando usi gli insight dell'archivio personale, integrali naturalmente nel ragionamento senza citarli esplicitamente.`;
 
     if (routingPrefix) {
@@ -192,6 +197,25 @@ ${routingPrefix}`;
       model: llm(streamModel),
       system: systemPrompt,
       messages: modelMessages,
+      tools: {
+        web_search: tool({
+          description: 'Cerca informazioni aggiornate sul web. Usalo per notizie, prezzi, documentazione tecnica, dati di mercato o qualsiasi contenuto online recente. La ricerca viene eseguita in un ambiente sandboxato per sicurezza.',
+          inputSchema: z.object({
+            query: z.string().describe('La query di ricerca. Sii specifico per ottenere risultati pertinenti.'),
+          }),
+          execute: async ({ query }) => {
+            const response = await searchWeb(query)
+            const sanitized = await sanitizeSearchResults(
+              query,
+              response.results,
+              response.answer,
+              apiKey,
+              isGoProvider,
+            )
+            return sanitized
+          },
+        }),
+      },
       onError: (e) => console.error('[chat] streamText error:', e),
     });
 

@@ -1,7 +1,10 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, generateText, convertToModelMessages } from 'ai';
+import { streamText, generateText, convertToModelMessages, tool } from 'ai';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { decrypt } from '@/lib/crypto';
+import { searchWeb } from '@/lib/web-search';
+import { sanitizeSearchResults } from '@/lib/search-agent';
 
 export const maxDuration = 60;
 
@@ -128,7 +131,9 @@ Il tuo ruolo è:
 - Aiutare a strutturare e raffinare il pensiero
 - Suggerire direzioni di sviluppo pratico o teorico
 
-Rispondi sempre in italiano. Sii diretto, curioso e stimolante — non limitarti a confermare, metti alla prova l'idea.`;
+Rispondi sempre in italiano. Sii diretto, curioso e stimolante — non limitarti a confermare, metti alla prova l'idea.
+
+Hai a disposizione lo strumento \`web_search\` per cercare informazioni aggiornate sul web. Usalo quando il prompt richiede dati non presenti nella tua memoria (es. notizie attuali, prezzi, documentazione aggiornata, tendenze di mercato). Non usarlo per domande generiche o concettuali che puoi già rispondere.`;
 
     if (routingPrefix) {
       systemPrompt += `\n\nIMPORTANTE: Devi iniziare la tua risposta esattamente con questa riga di intestazione (inclusi i caratteri markdown e i due a capo alla fine):
@@ -146,6 +151,25 @@ ${routingPrefix}`;
       model: llm(streamModel),
       system: systemPrompt,
       messages: modelMessages,
+      tools: {
+        web_search: tool({
+          description: 'Cerca informazioni aggiornate sul web. Usalo per notizie, prezzi, documentazione tecnica, dati di mercato o qualsiasi contenuto online recente. La ricerca viene eseguita in un ambiente sandboxato per sicurezza.',
+          inputSchema: z.object({
+            query: z.string().describe('La query di ricerca. Sii specifico per ottenere risultati pertinenti.'),
+          }),
+          execute: async ({ query }) => {
+            const response = await searchWeb(query)
+            const sanitized = await sanitizeSearchResults(
+              query,
+              response.results,
+              response.answer,
+              apiKey,
+              isGoProvider,
+            )
+            return sanitized
+          },
+        }),
+      },
       onError: (e) => console.error('[idea-chat] streamText error:', e),
     });
 
