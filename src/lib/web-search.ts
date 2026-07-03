@@ -1,4 +1,3 @@
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY
 const TAVILY_URL = 'https://api.tavily.com/search'
 
 export interface TavilyResult {
@@ -14,7 +13,10 @@ export interface TavilyResponse {
 }
 
 export async function searchWeb(query: string, maxResults = 5): Promise<TavilyResponse> {
-  if (!TAVILY_API_KEY) {
+  const apiKey = process.env.TAVILY_API_KEY
+  console.log('[web-search] process.env.TAVILY_API_KEY presente:', !!apiKey)
+
+  if (!apiKey) {
     throw new Error('TAVILY_API_KEY non configurata. Aggiungila in .env.local')
   }
 
@@ -22,7 +24,7 @@ export async function searchWeb(query: string, maxResults = 5): Promise<TavilyRe
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      api_key: TAVILY_API_KEY,
+      api_key: apiKey,
       query,
       search_depth: 'basic',
       max_results: maxResults,
